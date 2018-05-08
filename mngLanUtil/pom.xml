@@ -1,0 +1,197 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>khaeng</groupId>
+	<artifactId>mngLanUtil</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<packaging>jar</packaging>
+
+	<name>mngLanUtil</name>
+	<description>Network interface management</description>
+	<url>http://www.itcall.co.kr/</url>
+	<scm>
+		<url>http://www.itcall.co.kr/</url>
+		<connection>khaeng@nate.com</connection>
+		<developerConnection>khaeng(Kuee-Haeng LEE)</developerConnection>
+		<tag>haenk</tag>
+	</scm>
+
+	<properties>
+		<main.class.name>com.itcall.util.lan.App</main.class.name>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<java.version>1.6</java.version>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>3.8.1</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+
+	<build>
+
+		<plugins>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.6.1</version>
+				<configuration>
+					<source>${java.version}</source>
+					<target>${java.version}</target>
+					<encoding>${project.build.sourceEncoding}</encoding>
+					<optimize>true</optimize>
+					<compilerArguments>
+						<!-- sun.swing.table... 컴파일 시 라이브러리 미지원에 대하여 직접 jar를 참조시킨다. -->
+						<bootclasspath>${java.home}\lib\rt.jar</bootclasspath>
+					</compilerArguments>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<configuration>
+					<archive>
+						<manifest>
+							<addClasspath>true</addClasspath>
+							<classpathPrefix>/libs</classpathPrefix>
+							<mainClass>${main.class.name}</mainClass>
+						</manifest>
+					</archive>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>copy</id>
+						<phase>package</phase>
+						<goals>
+							<goal>copy-dependencies</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>
+								${project.build.directory}/libs
+							</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>1.6.0</version>
+				<inherited>false</inherited>
+				<executions>
+					<execution>
+						<id>copy-jar</id>
+						<phase>package</phase>
+						<goals>
+							<goal>exec</goal>
+						</goals>
+						<inherited>false</inherited>
+						<configuration>
+							<workingDirectory>${project.build.directory}</workingDirectory>
+							<executable>cmd</executable>
+							<arguments>
+								<argument>/C</argument>
+								<argument>copy</argument>
+								<argument>${project.name}-${project.version}.jar</argument>
+								<argument>${project.name}-${project.version}-ALL.jar</argument>
+							</arguments>
+						</configuration>
+					</execution>
+					
+					<execution>
+						<id>make-manifest-mf</id>
+						<phase>package</phase>
+						<goals>
+							<goal>exec</goal>
+						</goals>
+						<inherited>false</inherited>
+						<configuration>
+							<workingDirectory>${project.build.directory}</workingDirectory>
+							<executable>java</executable>
+							<arguments>
+								<argument>-classpath</argument>
+								<argument>classes</argument>
+								<argument>org.eclipse.jdt.internal.jarinjarloader.MakeManifest</argument>
+								<argument>com.itcall.remotej.RemoteJ</argument>
+								<argument>myMakeManifest.cfg</argument>
+							</arguments>
+						</configuration>
+					</execution>
+					
+					<!-- jar cvf0M RemoteJ-0.0.1-SNAPSHOT.bin.jar -C classes/ . libs/*.jar libs -->
+					<!-- 원본 복사후 ::: jar uvf0 RemoteJ-0.0.1-SNAPSHOT.bin.jar libs/*.jar libs -->
+					<!-- jar cvfm RemoteJ-0.0.1-SNAPSHOT-ALL2.jar RemoteJ\META-INF\MANIFEST.MF -C RemoteJ/ . -->
+					<!-- 특정메니페스트파일 지정하고, 풀어논 모든 파일을 루드로 새로.압축하기. -->
+					<execution>
+						<id>make-jar-onepack</id>
+						<phase>package</phase>
+						<goals>
+							<goal>exec</goal>
+						</goals>
+						<configuration>
+							<workingDirectory>${project.build.directory}</workingDirectory>
+							<executable>jar</executable>
+							<arguments>
+								<argument>uvfm</argument>
+								<argument>${project.name}-${project.version}-ALL.jar</argument>
+								<argument>myMakeManifest.cfg</argument>
+								<!-- <argument>-C</argument> -->
+								<argument>libs\*.jar</argument>
+								<argument>libs</argument>
+							</arguments>
+						</configuration>
+					</execution>
+
+					<execution>
+						<id>copy-runable-jar</id>
+						<phase>package</phase>
+						<goals>
+							<goal>exec</goal>
+						</goals>
+						<inherited>false</inherited>
+						<configuration>
+							<workingDirectory>${project.build.directory}</workingDirectory>
+							<executable>cmd</executable>
+							<arguments>
+								<argument>/C</argument>
+								<argument>copy</argument>
+								<argument>${project.name}-${project.version}-ALL.jar</argument>
+								<argument>..\${project.name}.jar</argument>
+							</arguments>
+						</configuration>
+					</execution>
+
+				</executions>
+			</plugin> 
+
+		</plugins>
+	</build>
+
+
+	<developers>
+		<developer>
+			<id>hangk</id>
+			<name>Kuee Haeng LEE</name>
+			<email>khaeng@nate.com</email>
+			<organization>com.itcall</organization>
+			<organizationUrl>http://www.itcall.co.kr/</organizationUrl>
+			<url>http://www.itcall.co.kr/</url>
+			<roles>
+				<role>Just developer</role>
+			</roles>
+		</developer>
+	</developers>
+
+</project>
