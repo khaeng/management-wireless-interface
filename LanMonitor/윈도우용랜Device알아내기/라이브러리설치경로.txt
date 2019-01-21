@@ -1,0 +1,4 @@
+Win32 : C:\WINDOWS\Sun\Java\lib\ext
+리눅스 : /usr/java/packegs/lib/ext
+
+jpcap.jar를 추가한다.
