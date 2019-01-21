@@ -1,0 +1,304 @@
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.itcall.batch.common.mapper.batchInfo.BatchInfoMapper">
+
+	<sql id="whereForSelect">
+		WHERE 1=1 AND KIND_CD = #{kindCd}
+		<if test='useYn !=null and !useYn.equals("")'>
+			AND USE_YN = #{useYn}
+		</if>
+		<if test='jobName !=null and !jobName.equals("")'>
+			AND JOB_NAME = #{jobName}
+		</if>
+		<if test='jobViewName !=null and !jobViewName.equals("")'>
+			AND JOB_VIEW_NAME LIKE '%'||#{jobViewName}||'%'
+		</if>
+		<if test='cronCmd !=null and !cronCmd.equals("")'>
+			AND CRON_CMD = #{cronCmd}
+		</if>
+		<if test='svrTypeCd !=null and !svrTypeCd.equals("")'>
+			AND SVR_TYPE_CD = #{svrTypeCd}
+		</if>
+	</sql>
+	<select id="selectBatchInfoList" resultType="com.itcall.batch.common.vo.batchInfo.BatchInfoVo" parameterType="com.itcall.batch.common.vo.batchInfo.BatchInfoVo">
+		SELECT job_Name, kind_Cd, cron_Cmd, use_Yn, svr_Type_Cd, job_view_name, job_Desc FROM BATCH_INFO
+		<include refid="whereForSelect"/>
+		ORDER BY JOB_NAME
+	</select>
+	<select id="selectBatchInfo" resultType="com.itcall.batch.common.vo.batchInfo.BatchInfoVo" parameterType="com.itcall.batch.common.vo.batchInfo.BatchInfoVo">
+		SELECT job_Name, kind_Cd, cron_Cmd, use_Yn, svr_Type_Cd, job_view_name, job_Desc FROM BATCH_INFO
+		<include refid="whereForSelect"/>
+		ORDER BY JOB_NAME
+		LIMIT 1
+	</select>
+
+	<insert id="insertBatchJobInfoList" >
+		<choose>
+			<when test="batchInfoList != null and batchInfoList.size != 0">
+				INSERT INTO BATCH_INFO ( JOB_NAME, KIND_CD, CRON_CMD, USE_YN, SVR_TYPE_CD, JOB_VIEW_NAME, JOB_DESC )
+				<foreach item="batchInfo" collection="batchInfoList" separator=" UNION ALL " open="" close="">
+					SELECT CAST(#{batchInfo.jobName} AS VARCHAR(100))
+						, CAST(#{batchInfo.kindCd} AS VARCHAR(10))
+						, CAST(#{batchInfo.cronCmd} AS VARCHAR(100))
+						, CAST(#{batchInfo.useYn} AS VARCHAR(1))
+						, CAST(#{batchInfo.svrTypeCd} AS VARCHAR(50))
+						, CAST(#{batchInfo.jobViewName} AS VARCHAR(200))
+						, CAST(#{batchInfo.jobDesc} AS VARCHAR(200))
+					FROM DUAL
+				</foreach>
+			</when>
+		</choose>
+	</insert>
+
+	<insert id="insertBatchJobInfo">
+		INSERT INTO BATCH_INFO ( JOB_NAME, KIND_CD, CRON_CMD, USE_YN, SVR_TYPE_CD, JOB_VIEW_NAME, JOB_DESC )
+			VALUES (
+				CAST(#{batchInfo.jobName} AS VARCHAR(100))
+				, CAST(#{batchInfo.kindCd} AS VARCHAR(10))
+				, CAST(#{batchInfo.cronCmd} AS VARCHAR(100))
+				, CAST(#{batchInfo.useYn} AS VARCHAR(1))
+				, CAST(#{batchInfo.svrTypeCd} AS VARCHAR(50))
+				, CAST(#{batchInfo.jobViewName} AS VARCHAR(200))
+				, CAST(#{batchInfo.jobDesc} AS VARCHAR(200))
+			)
+	</insert>
+
+	<update id="updateBatchJobInfo">
+		<![CDATA[
+			UPDATE BATCH_INFO SET
+				JOB_NAME = CAST(#{batchInfo.jobName} AS VARCHAR(100))
+				, KIND_CD = CAST(#{batchInfo.kindCd} AS VARCHAR(10))
+				, CRON_CMD = CAST(#{batchInfo.cronCmd} AS VARCHAR(100))
+				, USE_YN = CAST(#{batchInfo.useYn} AS VARCHAR(1))
+				, SVR_TYPE_CD = CAST(#{batchInfo.svrTypeCd} AS VARCHAR(50))
+				, JOB_VIEW_NAME = CAST(#{batchInfo.jobViewName} AS VARCHAR(200))
+				, JOB_DESC = CAST(#{batchInfo.jobDesc} AS VARCHAR(200))
+		]]>
+		WHERE 1=1 AND KIND_CD = #{batchInfo.kindCd}
+		<if test='batchInfo.useYn !=null and !batchInfo.useYn.equals("")'>
+			AND USE_YN = #{batchInfo.useYn}
+		</if>
+		<if test='batchInfo.jobName !=null and !batchInfo.jobName.equals("")'>
+			AND JOB_NAME = #{batchInfo.jobName}
+		</if>
+		<if test='batchInfo.jobViewName !=null and !batchInfo.jobViewName.equals("")'>
+			AND JOB_VIEW_NAME LIKE '%'||#{batchInfo.jobViewName}||'%'
+		</if>
+<!-- 		<if test='batchInfo.cronCmd !=null and !batchInfo.cronCmd.equals("")'>
+			AND CRON_CMD = #{batchInfo.cronCmd}
+		</if> -->
+		<if test='batchInfo.svrTypeCd !=null and !batchInfo.svrTypeCd.equals("")'>
+			AND SVR_TYPE_CD = #{batchInfo.svrTypeCd}
+		</if>
+	</update>
+
+
+	<insert id="insertBatchJobInfoList_PPAS_2" > <!-- 이것도 Altibase는 안된다. 하나씩 넣어야 하나보다. -->
+		<choose>
+			<when test="batchInfoList != null and batchInfoList.size != 0">
+				<foreach item="batchInfo" collection="batchInfoList" separator="  " open=" " close=" ">
+					INSERT INTO batch_info( job_name, kind_cd, cron_cmd, use_yn,	svr_type_cd, JOB_VIEW_NAME, job_desc ) VALUES ( #{batchInfo.jobName}, #{batchInfo.kindCd}, #{batchInfo.cronCmd}, #{batchInfo.useYn}, #{batchInfo.svrTypeCd}, #{batchInfo.jobViewName}, #{batchInfo.jobDesc} );
+				</foreach>
+			</when>
+			<otherwise>
+				SELECT 1 FROM DUAL
+			</otherwise>
+		</choose>
+	</insert>
+	<insert id="insertBatchJobInfoList_PPAS" ><!-- Altibase에서는 호환되지 않는 명령임. -->
+		<choose>
+			<when test="batchInfoList != null and batchInfoList.size != 0">
+				INSERT INTO BATCH_INFO ( JOB_NAME, KIND_CD, CRON_CMD, USE_YN, SVR_TYPE_CD, JOB_VIEW_NAME, JOB_DESC )
+				<foreach item="batchInfo" collection="batchInfoList" separator=" UNION ALL " open="" close="">
+					SELECT #{batchInfo.jobName}, #{batchInfo.kindCd}, #{batchInfo.cronCmd}, #{batchInfo.useYn}, #{batchInfo.svrTypeCd}, #{batchInfo.jobViewName}, #{batchInfo.jobDesc}
+				</foreach>
+			</when>
+			<otherwise>
+				SELECT 1 FROM DUAL
+			</otherwise>
+		</choose>
+	</insert>
+
+	<select id="selectTest_virtual" resultType="com.itcall.batch.common.vo.batchInfo.BatchInfoVo">
+		SELECT job_Name, kind_Cd, cron_Cmd, use_Yn, svr_Type_Cd, JOB_VIEW_NAME, job_Desc FROM BATCH_INFO
+		UNION ALL
+		SELECT 'jobName', 'kindCd', 'cronCmd', 'useYn', 'svrTypeCd', 'JOB_VIEW_NAME', 'jobDesc' FROM DUAL
+		UNION ALL  
+		SELECT 'jobName', 'kindCd', 'cronCmd', 'useYn', 'svrTypeCd', 'JOB_VIEW_NAME', 'jobDesc' FROM DUAL
+		UNION ALL  
+		<foreach item="batchInfo" collection="batchInfoList" separator=" UNION ALL " open="" close="">
+			SELECT CAST(#{batchInfo.jobName} AS VARCHAR(100))
+				, CAST(#{batchInfo.kindCd} AS VARCHAR(10))
+				, CAST(#{batchInfo.cronCmd} AS VARCHAR(100))
+				, CAST(#{batchInfo.useYn} AS VARCHAR(1))
+				, CAST(#{batchInfo.svrTypeCd} AS VARCHAR(50))
+				, CAST(#{batchInfo.jobViewName} AS VARCHAR(200))
+				, CAST(#{batchInfo.jobDesc} AS VARCHAR(200))
+			FROM DUAL
+		</foreach>
+	</select>
+
+	<select id="selectTest" resultType="com.itcall.batch.common.vo.batchInfo.BatchInfoVo">
+		SELECT job_Name, kind_Cd, cron_Cmd, use_Yn, svr_Type_Cd, JOB_VIEW_NAME, job_Desc FROM BATCH_INFO UNION ALL
+		<choose>
+			<when test="batchInfoList != null and batchInfoList.size != 0">
+				<foreach item="batchInfo" collection="batchInfoList" separator=" UNION ALL " open="" close="">
+					SELECT CAST(#{batchInfo.jobName} AS VARCHAR(100))
+						, CAST(#{batchInfo.kindCd} AS VARCHAR(10))
+						, CAST(#{batchInfo.cronCmd} AS VARCHAR(100))
+						, CAST(#{batchInfo.useYn} AS VARCHAR(1))
+						, CAST(#{batchInfo.svrTypeCd} AS VARCHAR(50))
+						, CAST(#{batchInfo.jobViewName} AS VARCHAR(200))
+						, CAST(#{batchInfo.jobDesc} AS VARCHAR(200))
+					FROM DUAL
+				</foreach>
+			</when>
+			<otherwise>
+				SELECT 1 FROM DUAL
+			</otherwise>
+		</choose>
+	</select>
+
+
+
+
+	<select id="selectBatchInfoHstList" resultType="com.itcall.batch.common.vo.batchInfo.BatchInfoHstVo">
+		<![CDATA[
+			SELECT JOB_NAME, CREATE_TIME, KIND_CD, SVR_TYPE_CD, JOB_ID, JOB_EXEC_ID, START_TIME, END_TIME, STATUS, EXIT_CODE, EXIT_MSG, REST_CNT, REST_MSG, LAST_UPDATED, PARAMETERS FROM BATCH_INFO_HST
+			WHERE 1=1 
+		]]>
+		<if test='batchInfoHst.jobId !=null and batchInfoHst.jobId>0'>
+			AND JOB_ID = #{batchInfoHst.jobId}
+		</if>
+		<if test='batchInfoHst.jobExecId !=null and batchInfoHst.jobExecId>0'>
+			AND JOB_EXEC_ID = #{batchInfoHst.jobExecId}
+		</if>
+		<if test='batchInfoHst.jobName !=null and !batchInfoHst.jobName.equals("")'>
+			AND JOB_NAME LIKE '%'||#{batchInfoHst.jobName}||'%'
+		</if>
+		<if test='batchInfoHst.kindCd !=null and !batchInfoHst.kindCd.equals("")'>
+			AND KIND_CD = #{batchInfoHst.kindCd}
+		</if>
+		<if test='batchInfoHst.svrTypeCd !=null and !batchInfoHst.svrTypeCd.equals("")'>
+			AND SVR_TYPE_CD = #{batchInfoHst.svrTypeCd}
+		</if>
+		<if test='batchInfoHst.createTime !=null'>
+			AND CREATE_TIME = #{batchInfoHst.createTime}
+		</if>
+		<if test='batchInfoHst.startTime !=null'>
+			AND START_TIME = #{batchInfoHst.startTime}
+		</if>
+		<if test='batchInfoHst.status !=null and !batchInfoHst.status.equals("")'>
+			AND STATUS = #{batchInfoHst.status}
+		</if>
+		<if test='batchInfoHst.parameters !=null and !batchInfoHst.parameters.equals("")'>
+			AND PARAMETERS = #{batchInfoHst.parameters}
+		</if>
+		ORDER BY LAST_UPDATED DESC
+	</select>
+
+
+	<select id="selectBatchInfoHstLastStatus" resultType="com.itcall.batch.common.vo.batchInfo.BatchInfoHstVo"  parameterType="com.itcall.batch.common.vo.batchInfo.BatchInfoHstVo">
+		SELECT A.JOB_NAME, A.CREATE_TIME, A.KIND_CD, A.SVR_TYPE_CD, JOB_ID, JOB_EXEC_ID, START_TIME, END_TIME, STATUS, EXIT_CODE --, EXIT_MSG
+				, REST_CNT, REST_MSG, LAST_UPDATED, PARAMETERS
+		FROM BATCH_INFO_HST A
+		RIGHT JOIN (
+			SELECT JOB_NAME, SVR_TYPE_CD, MAX(CREATE_TIME) CREATE_TIME
+			FROM BATCH_INFO_HST
+			WHERE 1=1 AND KIND_CD = #{kindCd}
+			AND JOB_NAME = #{jobName}
+			GROUP BY JOB_NAME, SVR_TYPE_CD
+		) B ON A.JOB_NAME = B.JOB_NAME AND A.SVR_TYPE_CD = B.SVR_TYPE_CD AND A.CREATE_TIME = B.CREATE_TIME
+			AND A.KIND_CD = #{kindCd}
+			AND A.JOB_NAME = #{jobName}
+	</select>
+
+	<select id="selectBatchInfoHstLastOne" resultType="com.itcall.batch.common.vo.batchInfo.BatchInfoHstVo"  parameterType="com.itcall.batch.common.vo.batchInfo.BatchInfoHstVo">
+		<![CDATA[
+			SELECT JOB_NAME, CREATE_TIME, KIND_CD, SVR_TYPE_CD, JOB_ID, JOB_EXEC_ID, START_TIME, END_TIME, STATUS, EXIT_CODE --, EXIT_MSG
+					, REST_CNT, REST_MSG, LAST_UPDATED, PARAMETERS FROM BATCH_INFO_HST
+			WHERE 1=1 AND KIND_CD = #{kindCd}
+		]]>
+		<if test='jobId !=null and jobId>0'>
+			AND JOB_ID = #{jobId}
+		</if>
+		<if test='jobExecId !=null and jobExecId>0'>
+			AND JOB_EXEC_ID = #{jobExecId}
+		</if>
+		<if test='jobName !=null and !jobName.equals("")'>
+			AND JOB_NAME = #{jobName}
+		</if>
+		<if test='kindCd !=null and !kindCd.equals("")'>
+			AND KIND_CD = #{kindCd}
+		</if>
+		<if test='svrTypeCd !=null and !svrTypeCd.equals("")'>
+			AND SVR_TYPE_CD = #{svrTypeCd}
+		</if>
+		<if test='createTime !=null'>
+			AND CREATE_TIME = #{createTime}
+		</if>
+		<if test='startTime !=null'>
+			AND START_TIME = #{startTime}
+		</if>
+		<if test='status !=null and !status.equals("")'>
+			AND STATUS = #{status}
+		</if>
+		<if test='parameters !=null and !parameters.equals("")'>
+			AND PARAMETERS = #{parameters}
+		</if>
+		ORDER BY CREATE_TIME DESC
+		LIMIT 1
+	</select>
+	<insert id="insertBatchInfoHst" parameterType="com.itcall.batch.common.vo.batchInfo.BatchInfoHstVo">
+		INSERT INTO batch_info_hst(
+			JOB_NAME, CREATE_TIME, KIND_CD, SVR_TYPE_CD
+			, JOB_ID, JOB_EXEC_ID, START_TIME, END_TIME, LAST_UPDATED, PARAMETERS
+			, STATUS, EXIT_CODE, EXIT_MSG
+			, REST_CNT, REST_MSG
+		)VALUES(
+			#{jobName}, #{createTime}, #{kindCd}, #{svrTypeCd}
+			, #{jobId}, #{jobExecId}, #{startTime}, #{endTime}, #{lastUpdated}, #{parameters}
+			, #{status}, #{exitCode}, #{exitMsg}
+			, #{restCnt}, DECODE(#{restMsg}, null,'', #{restMsg})
+		)
+	</insert>
+	<update id="updateBatchInfoHst" parameterType="com.itcall.batch.common.vo.batchInfo.BatchInfoHstVo">
+		UPDATE batch_info_hst
+		SET PARAMETERS = #{parameters}
+		<if test='endTime !=null'>
+			, END_TIME = #{endTime}
+		</if>
+		<if test='status !=null and !status.equals("")'>
+			, STATUS = #{status}
+		</if>
+		<if test='exitCode !=null and !exitCode.equals("")'>
+			, EXIT_CODE = SUBSTRB(#{exitCode}, 0, 2500)
+		</if>
+		<if test='exitMsg !=null and !exitMsg.equals("")'>
+			, EXIT_MSG = SUBSTRB(#{exitMsg}, 0, 4000)
+		</if>
+		<if test='lastUpdated !=null'>
+			, LAST_UPDATED = #{lastUpdated}
+		</if>
+		<if test='restCnt !=null and restCnt>0'>
+			, REST_CNT = REST_CNT + #{restCnt}
+		</if>
+		<if test='restMsg !=null and !restMsg.equals("")'>
+			, REST_MSG = SUBSTRB(DECODE(REST_MSG, null, #{restMsg}, REST_MSG||chr(13)||chr(10)||#{restMsg}), 0, 4000)
+		</if>
+		WHERE 1=1 
+<!-- MapRepositoryBean을 사용하므로 DB에 저장된 id값들과는 count체계가 다르다. AND JOB_ID = #{jobId} AND JOB_EXEC_ID = #{jobExecId} -->
+			AND JOB_NAME = #{jobName}
+			AND KIND_CD = #{kindCd}
+			AND SVR_TYPE_CD = #{svrTypeCd}
+			AND CREATE_TIME = #{createTime}
+			AND START_TIME = #{startTime}
+<!-- 			AND STATUS = 조건이 바뀌기 때문에 조건으로 넣을 수 없다. -->
+<!-- 			AND PARAMETERS = 조건을 수행중 변경 시킬 수 있기 때문에 조건으로 넣을 수 없다. -->
+	</update>
+
+
+
+
+
+
+</mapper>

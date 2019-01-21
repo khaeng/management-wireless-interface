@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Configuration status="WARN" name="itcallBatch">
+
+	<properties>
+		<property name="sysCd">batCust</property>
+
+		<property name="pattern">%highlight{${LOG_LEVEL_PATTERN:-%5p}}{FATAL=red blink, ERROR=red bold, WARN=magenta, INFO=green bold, DEBUG=blue, TRACE=gray} | %d{HH:mm:ss.SSS} [%10.10t] %style{%30.30C{1.}}{cyan}.%style{%M}{blue} (%L) | %m%n</property>
+		<property name="filePattern">%5p | %d{HH:mm:ss.SSS} | %10t | %30c{1.}.%M (%L) | %m%n</property>
+		<property name="myReportPattern">{ %m }%n</property>
+
+		<property name="filePath">/jb_log/${sysCd}/${sysCd}_${sys:spring.profiles.active}_${sys:SERVER}.log</property>
+		<property name="filePathPattern">/jb_log/${sysCd}/${sysCd}_${sys:spring.profiles.active}_${sys:SERVER}.log.%d{yyyy-MM-dd}.%i</property>
+
+		<property name="errFilePath">/jb_log/${sysCd}/error_${sysCd}_${sys:spring.profiles.active}_${sys:SERVER}.log</property>
+		<property name="errFilePathPattern">/jb_log/${sysCd}/error_${sysCd}_${sys:spring.profiles.active}_${sys:SERVER}.log.%d{yyyy-MM-dd}.%i</property>
+
+		<property name="myReportFilePath">/jb_log/myReport/${sysCd}_${sys:spring.profiles.active}_${sys:SERVER}_myReport.log</property>
+		<property name="myReportFilePathPattern">/jb_log/myReport/${sysCd}_${sys:spring.profiles.active}_${sys:SERVER}_myReport.log.%d{yyyy-MM-dd}.%i</property>
+	</properties>
+
+
+
+	<!-- Appender, Layout 설정 -->
+	<Appenders>
+		
+		<Console name="systemOut" target="SYSTEM_OUT">
+			<PatternLayout pattern="${pattern}"/>
+		</Console>
+		
+		<RollingRandomAccessFile name="fileAppender" fileName="${filePath}" filePattern="${filePathPattern}"
+								immediateFlush="false" append="true" bufferSize="512">
+			<PatternLayout pattern="${filePattern}" />
+			<Policies>
+				<TimeBasedTriggeringPolicy /><!-- Rotated everyday -->
+				<SizeBasedTriggeringPolicy size="500 MB"/>
+			</Policies>
+			<DefaultRolloverStrategy max="200" fileIndex="min">
+				<Delete basePath="/jb_log/${sysCd}/" maxDepth="1">
+					<IfFileName glob="${sysCd}_${sys:spring.profiles.active}_${sys:SERVER}.log.*"/>
+					<IfLastModified age="3d"/>
+				</Delete>
+			</DefaultRolloverStrategy>
+		</RollingRandomAccessFile>
+		
+		<RollingRandomAccessFile name="errorAppender" fileName="${errFilePath}" filePattern="${errFilePathPattern}"
+								immediateFlush="false" append="true" bufferSize="512">
+			<PatternLayout pattern="${filePattern}" />
+			<Policies>
+				<TimeBasedTriggeringPolicy /><!-- Rotated everyday -->
+				<SizeBasedTriggeringPolicy size="500 MB"/>
+			</Policies>
+			<DefaultRolloverStrategy max="200" fileIndex="min">
+				<Delete basePath="/jb_log/${sysCd}/" maxDepth="1">
+					<IfFileName glob="error_${sysCd}_${sys:spring.profiles.active}_${sys:SERVER}.log.*"/>
+					<IfLastModified age="3d"/>
+				</Delete>
+			</DefaultRolloverStrategy>
+		</RollingRandomAccessFile>
+		
+		<RollingRandomAccessFile name="myReportAppender" fileName="${myReportFilePath}" filePattern="${myReportFilePathPattern}"
+								immediateFlush="false" append="true" bufferSize="512">
+			<PatternLayout pattern="${myReportPattern}" />
+			<Policies>
+				<TimeBasedTriggeringPolicy /><!-- Rotated everyday -->
+				<SizeBasedTriggeringPolicy size="500 MB"/>
+			</Policies>
+			<DefaultRolloverStrategy max="200" fileIndex="min">
+				<Delete basePath="/jb_log/myReport/" maxDepth="1">
+					<IfFileName glob="${sysCd}_${sys:spring.profiles.active}_${sys:SERVER}_myReport.log.*"/>
+					<IfLastModified age="3d"/>
+				</Delete>
+			</DefaultRolloverStrategy>
+		</RollingRandomAccessFile>
+
+		<Async name="console" includeLocation="true">
+			<AppenderRef ref="systemOut"/>
+			<AppenderRef ref="fileAppender"/>
+			<AppenderRef ref="errorAppender" level="ERROR"/>
+		</Async>
+		<Async name="MyReport_Appender" includeLocation="true">
+			<AppenderRef ref="myReportAppender"/>
+		</Async>
+	</Appenders>
+
+
+
+	<!-- Logger 설정 -->
+	<Loggers>
+
+		<Root level="WARN">
+			<AppenderRef ref="console" />
+		</Root>
+
+		<!-- MyReport logger -->
+		<logger name="com.itcall.batch.myReport.MyReportLogAdder" level="INFO" additivity="false">
+			<AppenderRef ref="MyReport_Appender"/>
+		</logger>
+
+		<!-- Local Package -->
+		<Logger name = "com.itcall" level="DEBUG" additivity="false">
+			<AppenderRef ref="console"/>
+		</Logger>
+		<Logger name = "mapper.com.itcall" level="DEBUG" additivity="false">
+			<AppenderRef ref="console"/><!-- om의 쿼리관련출력 -->
+		</Logger>
+
+		<!-- open source library logger for INFO level -->
+		<Logger name = "org.springframework" level="INFO" additivity="false">
+				<AppenderRef ref="console" />
+		</Logger>
+		<Logger name = "org.mybatis" level="INFO" additivity="false">
+				<AppenderRef ref="console" />
+		</Logger>
+		<Logger name = "org.apache" level="INFO" additivity="false">
+				<AppenderRef ref="console" />
+		</Logger>
+		<Logger name = "org.jboss" level="DEBUG" additivity="false">
+			<AppenderRef ref="console" />
+		</Logger>
+		<!-- for sql. om-project는 mapper로 대체됨. -->
+		<Logger name = "java.sql.Connection" level="DEBUG" additivity="false">
+				<AppenderRef ref="console" />
+		</Logger>
+<!-- 		<Logger name = "java.sql.Statement" level="DEBUG" additivity="false"> -->
+<!-- 				<AppenderRef ref="console" /> -->
+<!-- 		</Logger> -->
+		<Logger name = "java.sql.PreparedStatement" level="DEBUG" additivity="false">
+				<AppenderRef ref="console" />
+		</Logger>
+<!-- 		<Logger name = "java.sql.ResultSet" level="DEBUG" additivity="false"> -->
+<!-- 				<AppenderRef ref="console" /> -->
+<!-- 		</Logger> -->
+
+
+		<!-- log4jdbc-remix 관련. Spy... -->
+<!-- 		<Logger name = "jdbc.sqltiming" level="DEBUG" additivity="false"> -->
+<!-- 			<AppenderRef ref="console" /> -->
+<!-- 		</Logger> -->
+<!-- 		<Logger name = "jdbc.audit" level="DEBUG" additivity="false"> -->
+<!-- 			<AppenderRef ref="console" /> -->
+<!-- 		</Logger> -->
+<!-- 		<Logger name = "jdbc.resultset" level="DEBUG" additivity="false"> -->
+<!-- 			<AppenderRef ref="console" /> -->
+<!-- 		</Logger> -->
+		<!-- log4jdbc-remix 관련. Spy... 개발된 형대와 동일한 쿼리형태로 값을 포함하여 그대로 출력한다. -->
+		<Logger name = "jdbc.sqlonly" level="INFO" additivity="false">
+			<AppenderRef ref="console" />
+		</Logger>
+		<!-- log4jdbc-remix 관련. Spy... 출력결과까지 정리하여 테이블형태로 출력한다. -->
+		<Logger name = "jdbc.resultsettable" level="INFO" additivity="false">
+			<AppenderRef ref="console" />
+		</Logger>
+
+	</Loggers>
+
+</Configuration>

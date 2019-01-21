@@ -1,0 +1,155 @@
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.itcall.batch.biz.mapper.sample.bizSam.Sample2thDbMapper">
+	<select id="selectListTest" resultType="com.itcall.batch.biz.vo.sample.bizSam.SampleInfoVo">
+		<![CDATA[
+			select A.* from (
+				SELECT '1' as board_num
+				, '32' as board_seq
+				, '난 두번째DB테스트다' as board_title
+				, '난 두번째DB테스트다' as board_content
+				, 'a.reg_user_id' as reg_user_id
+				, 'a.reg_date' as reg_date
+				, 'a.mod_user_id' as mod_user_id
+				, 'a.mod_date' as mod_date
+				, 11 as read_cnt
+				, 'b.user_nm' as user_nm
+				FROM DUAL
+				UNION ALL
+				SELECT '2' as board_num
+				, '33' as board_seq
+				, '난 두번째DB테스트다' as board_title
+				, '난 두번째DB테스트다' as board_content
+				, 'a.reg_user_id' as reg_user_id
+				, 'a.reg_date' as reg_date
+				, 'a.mod_user_id' as mod_user_id
+				, 'a.mod_date' as mod_date
+				, 14 as read_cnt
+				, 'b.user_nm' as user_nm
+				FROM DUAL
+				UNION ALL
+				SELECT '1' as board_num
+				, '32' as board_seq
+				, '난 두번째DB테스트다' as board_title
+				, '난 두번째DB테스트다' as board_content
+				, 'a.reg_user_id' as reg_user_id
+				, 'a.reg_date' as reg_date
+				, 'a.mod_user_id' as mod_user_id
+				, 'a.mod_date' as mod_date
+				, 11 as read_cnt
+				, 'b.user_nm' as user_nm
+				FROM DUAL
+				UNION ALL
+				SELECT '1' as board_num
+				, '32' as board_seq
+				, '난 두번째DB테스트다' as board_title
+				, '난 두번째DB테스트다' as board_content
+				, 'a.reg_user_id' as reg_user_id
+				, 'a.reg_date' as reg_date
+				, 'a.mod_user_id' as mod_user_id
+				, 'a.mod_date' as mod_date
+				, 11 as read_cnt
+				, 'b.user_nm' as user_nm
+				FROM DUAL
+				UNION ALL
+				SELECT '1' as board_num
+				, '32' as board_seq
+				, '난 두번째DB테스트다' as board_title
+				, '난 두번째DB테스트다' as board_content
+				, 'a.reg_user_id' as reg_user_id
+				, 'a.reg_date' as reg_date
+				, 'a.mod_user_id' as mod_user_id
+				, 'a.mod_date' as mod_date
+				, 11 as read_cnt
+				, 'b.user_nm' as user_nm
+				FROM DUAL
+			) A
+		]]>
+		<choose>
+			<when test="arrParam != null and arrParam.length != 0">
+					WHERE 1=1 OR A.user_nm IN 
+					<foreach item="param" collection="arrParam" separator="," open="(" close=")">
+						#{param}
+					</foreach>
+			</when>
+			<otherwise>
+				WHERE 1=1 OR #{arrParam}
+			</otherwise>
+		</choose>
+	</select>
+
+	<select id="selectCount" resultType="java.lang.Integer">
+		<![CDATA[
+			SELECT 
+				count(*) as board_count
+			FROM 
+				board_info a, user_info b
+			where 
+				a.reg_user_id=b.user_id
+
+		]]>
+	</select>
+
+	<select id="selectPageList" resultType="com.itcall.batch.biz.vo.sample.bizSam.SampleInfoVo">
+		<![CDATA[
+				SELECT * FROM (
+	
+							SELECT
+								rownum as board_num 
+								, a.board_seq as board_seq
+								, a.board_title as board_title
+								, a.board_content as board_content
+								, a.reg_user_id as reg_user_id
+								, a.reg_date as reg_date
+								, a.mod_user_id as mod_user_id
+								, a.mod_date as mod_date
+								, a.read_cnt as read_cnt
+								, b.user_nm as user_nm
+
+								
+							FROM 
+								board_info a, user_info b
+								
+							where 
+							
+								a.reg_user_id=b.user_id
+								ORDER BY a.reg_date DESC
+								)  
+				LIMIT #{limit}	 offset 	#{skipCount}
+			
+  		]]>
+	</select>
+
+	<select id="selectDetail" resultType="com.itcall.batch.biz.vo.sample.bizSam.SampleInfoVo">
+		<![CDATA[
+		SELECT 
+				a.board_seq as board_seq
+				, a.board_title as board_title
+				, a.board_content as board_content
+				, a.reg_user_id as reg_user_id
+				, a.reg_date as reg_date
+				, a.mod_user_id as mod_user_id
+				, a.mod_date as mod_date
+				, a.read_cnt as read_cnt
+				, b.user_nm as user_nm
+		FROM 
+	  			board_info a, user_info b
+  		where 
+  				a.board_seq = #{boardSeq}
+  				and a.reg_user_id=b.user_id
+  		]]>
+	</select>
+
+	
+	<insert id="boardSave" parameterType="com.itcall.batch.biz.vo.sample.bizSam.SampleInfoVo">
+		<![CDATA[
+			INSERT INTO board_info VALUES(board_seq.NEXT_VALUE,#{boardTitle},#{boardContent},#{regUserId},SYSDATETIME,#{modUserId},SYSDATETIME,0)
+  		]]>
+	</insert>
+
+	<update id="boardUpdate" parameterType="com.itcall.batch.biz.vo.sample.bizSam.SampleInfoVo">
+		<![CDATA[
+			update board_info set board_title=#{boardTitle}, board_content=#{boardContent}, mod_date=SYSDATETIME where board_seq=#{boardSeq}
+		]]>
+	</update>	
+
+</mapper>
