@@ -6,14 +6,14 @@
 		<Console name="console" target="SYSTEM_OUT">
 			<PatternLayout pattern="%5p | %d{DEFAULT} | %10t | %20c{1.}::%M (%L) | %m%n" />
 		</Console>
-		<File name="file" fileName="./logs/iprov/iprov.log" append="true">
+		<File name="file" fileName="./logs/dev/dev.log" append="true">
 			<PatternLayout pattern="%5p | %d{DEFAULT} | %10t | %20c{1.}::%M (%L) | %m%n" />
 		</File>
 	</Appenders>
 
 	<!-- Logger 설정 -->
 	<Loggers>
-		<Logger name="com.kt.nbiot" level="DEBUG" additivity="false">
+		<Logger name="com.itcall.dev" level="DEBUG" additivity="false">
 			<AppenderRef ref="console" />
 		</Logger>
 
