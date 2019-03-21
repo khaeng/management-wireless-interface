@@ -13,7 +13,7 @@
 	</appender>
 	
 	<appender name="ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
-		<file>/applog/DEV2_E2EBO/dev2-bos-web.log</file>
+		<file>/log/RemoteJ.log</file>
 		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
 			<!-- rollover daily -->
 			<fileNamePattern>log/RemoteJ-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
