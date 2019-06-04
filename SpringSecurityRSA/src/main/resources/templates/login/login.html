@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8" />
+<title>Login</title>
+	<script type="text/javascript" th:src="@{/js/common/jquery-3.3.1.min.js}"></script>
+	<!-- 순서에 유의 -->
+	<script type="text/javascript" th:src="@{/js/common/rsa.js}"></script>
+	<script type="text/javascript" th:src="@{/js/common/jsbn.js}"></script>
+	<script type="text/javascript" th:src="@{/js/common/prng4.js}"></script>
+	<script type="text/javascript" th:src="@{/js/common/rng.js}"></script>
+	<script type="text/javascript">
+		function login() {
+			var id = $("#username_text");
+			var pw = $("#password_text");
+	
+			if (id.val() == "") {
+				alert("Please Type your login id");
+				id.focus();
+				return false;
+			}
+	
+			if (pw.val() == "") {
+				alert("Please Type your password");
+				pw.focus();
+				return false;
+			}
+	
+			// rsa 암호화
+			var rsa = new RSAKey();
+			rsa.setPublic($('#RSAModulus').val(), $('#RSAExponent').val());
+	
+			$("#springSecurityLogin #username").val(rsa.encrypt(id.val()));
+			$("#springSecurityLogin #password").val(rsa.encrypt(pw.val()));
+			$("#normalProcessingLogin #username").val(rsa.encrypt(id.val()));
+			$("#normalProcessingLogin #password").val(rsa.encrypt(pw.val()));
+	
+			return true;
+		}
+	</script>
+
+</head>
+<body>
+	<div class="login_background">
+		<div class="login_logo"><span style="color: #0054A6;font-size: 70px;font-weight: 700;">Spring-boot Security with RSA (Thymeleaf UI/UX)</span></div>
+		<div class="login_box">
+			<input type="hidden" id="RSAModulus"  th:value="${_RSAModules}" />
+			<input type="hidden" id="RSAExponent" th:value="${_RSAExponent}" />
+			<input type="text" class="login_info" id="username_text" th:value="${username}" placeholder="Type Your login-id" autocomplete="off" /><br/>
+			<input type="password" class="login_info" id="password_text" title="your sample test password is 'testPassword'" placeholder="Type your password" autocomplete="off"/><br/>
+			(testPassword)
+			<br/>
+			<br/>
+
+			<div class="login_header">Spring Security LOGIN</div>
+			<form id="springSecurityLogin" th:action="@{login_post}" method="post" onsubmit="return login()">
+				<div>
+					<input type="hidden" name="username" id="username" value=""/>
+					<input type="hidden" name="password" id="password" value=""/>
+				</div> 
+				<div th:if="${logout}">You have been logged out successfully</div>
+				<input type="submit" class="login_submit" value="Login" />
+			</form>
+			<br/>
+			<br/>
+			<div class="login_header">Normal Process LOGIN</div>
+			<form id="normalProcessingLogin" th:action="@{loginProcess}" method="post" onsubmit="return login()">
+				<div>
+					<input type="hidden" name="username" id="username" value=""/>
+					<input type="hidden" name="password" id="password" value=""/>
+				</div> 
+				<div th:if="${logout}">You have been logged out successfully</div>
+				<input type="submit" class="login_submit" value="Login" />
+			</form>
+			<div th:if="${error}" th:text="${error}" class="login_error"></div>
+		</div>
+	</div>
+</body>
+</html>

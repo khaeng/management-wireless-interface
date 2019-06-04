@@ -1,0 +1,14 @@
+#Fat Jar Configuration File
+#Sat Jun 11 13:32:26 KST 2011
+onejar.license.required=true
+manifest.classpath=
+manifest.removesigners=true
+onejar.checkbox=false
+jarname=NetDeviceDetect.jar
+manifest.mergeall=true
+manifest.mainclass=NetDeviceDetect
+manifest.file=<createnew>
+jarname.isextern=false
+onejar.expand=
+excludes=
+includes=

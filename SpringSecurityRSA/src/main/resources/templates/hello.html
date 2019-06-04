@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></meta>
+<title>Hello WebView for Thymeleaf</title>
+</head>
+<body>
+
+	<h2>Hello! <span th:text="${name}"></span></h2>
+
+	<div>Thymeleaf UI/UX</div>
+	
+	<br>
+	<div>Login user : <span th:text="${username}">guest</span></div>
+	<br>
+	<div>
+		<div>Spring Security LOGOUT</div>
+		<form th:action="@{logout}" method="post" style="text-align:center;">
+			<input type="submit" value="Logout" />
+		</form>
+	</div>
+</body>
+</html>

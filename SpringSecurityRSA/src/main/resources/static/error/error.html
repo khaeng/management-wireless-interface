@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<body>
+	<script type="text/javascript">
+		function goBack(){
+			if(document.referrer.endsWith("login")){
+				location.href = document.referrer;
+			}else{
+				history.back(-1);
+			}
+		}
+	</script>
+	<h1>Something wrong!</h1>
+	<p>Error Infomation</p>
+	<table>
+		<tr>
+			<td>Error code</td><td style="color:#92B3B7" th:text="${code}">Error Code...</td>
+		</tr>
+		<tr>
+			<td>Error Message</td><td style="color:#92B3B7" th:text="${message}">Error Message...</td>
+		</tr>
+	</table>
+	<hr/>
+	<a href="/">Go Home</a>
+	<hr/>
+	<a href="#" onclick="boBack();">Go Back</a>
+	<hr/>
+</body>
+</html>
