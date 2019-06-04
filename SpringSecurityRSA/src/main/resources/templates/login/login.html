@@ -34,7 +34,9 @@
 			$("#springSecurityLogin #password").val(rsa.encrypt(pw.val()));
 			$("#normalProcessingLogin #username").val(rsa.encrypt(id.val()));
 			$("#normalProcessingLogin #password").val(rsa.encrypt(pw.val()));
-	
+			$("#redirectProcessingLogin #username").val(rsa.encrypt(id.val()));
+			$("#redirectProcessingLogin #password").val(rsa.encrypt(pw.val()));
+				
 			return true;
 		}
 	</script>
@@ -72,8 +74,22 @@
 				<div th:if="${logout}">You have been logged out successfully</div>
 				<input type="submit" class="login_submit" value="Login" />
 			</form>
+			<br/>
+			<br/>
+			<div class="login_header">Redirect Process LOGIN</div>
+			<form id="redirectProcessingLogin" th:action="@{loginRedirect}" method="post" onsubmit="return login()">
+				<div>
+					<input type="hidden" name="username" id="username" value=""/>
+					<input type="hidden" name="password" id="password" value=""/>
+				</div> 
+				<div th:if="${logout}">You have been logged out successfully</div>
+				<input type="submit" class="login_submit" value="Login" />
+			</form>
 			<div th:if="${error}" th:text="${error}" class="login_error"></div>
 		</div>
+		<br/>
+		<br/>
+		<div><a th:href="@{/loginCust}">직접로그인창으로 이동</a></div>
 	</div>
 </body>
 </html>

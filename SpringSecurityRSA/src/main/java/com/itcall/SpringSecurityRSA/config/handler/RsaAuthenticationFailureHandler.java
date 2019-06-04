@@ -11,7 +11,7 @@ import org.springframework.security.web.authentication.AuthenticationFailureHand
 
 import com.itcall.SpringSecurityRSA.rsa.SecureRsaCripto;
 
-public class JteAuthenticationFailureHandler implements AuthenticationFailureHandler {
+public class RsaAuthenticationFailureHandler implements AuthenticationFailureHandler {
 
 	@Override
 	public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException {

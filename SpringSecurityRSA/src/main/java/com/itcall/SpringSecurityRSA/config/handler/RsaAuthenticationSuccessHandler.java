@@ -13,7 +13,7 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationSu
 
 import com.itcall.SpringSecurityRSA.rsa.SecureRsaCripto;
 
-public class JteAuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
+public class RsaAuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
 	private RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
 

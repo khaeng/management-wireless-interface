@@ -1,7 +1,7 @@
 package com.itcall.SpringSecurityRSA.login;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -51,10 +51,10 @@ public class UserSecurityServiceImpl implements UserSecurityService {
 		User userDetails = (User) userDetailsService.loadUserByUsername(username);
 
 		UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(
-				userDetails, userDetails.getPassword(), userDetails.getAuthorities());
+				userDetails, password, userDetails.getAuthorities());
 		// SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
 
-		request.getSession();
+//		request.getSession();
 
 		usernamePasswordAuthenticationToken.setDetails(new WebAuthenticationDetails(request));
 
@@ -72,4 +72,16 @@ public class UserSecurityServiceImpl implements UserSecurityService {
 			log.info("Auto login[{}]/[{}] successfully!", username, password);
 		}
 	}
+
+
+//	@Override
+//	public void autologin(HttpServletRequest request, String username, String password) {
+//		UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(username, password);
+//		authToken.setDetails(new WebAuthenticationDetails(request));
+//
+//		Authentication authentication = authenticationManager.authenticate(authToken);
+//
+//		SecurityContextHolder.getContext().setAuthentication(authentication);
+//	}
+
 }

@@ -11,15 +11,19 @@ import javax.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.View;
 
 import com.itcall.SpringSecurityRSA.rsa.SecureRsaCripto;
 
@@ -51,6 +55,15 @@ public class LoginController {
 		return "login/login";
 	}
 
+	@RequestMapping("/loginCust")
+	public String loginCust(HttpServletRequest request, Model model, String error, String logout) throws InvalidKeyException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchPaddingException {
+		if (logout != null) {
+			model.addAttribute("logout", "You have been logged out successfully.");
+		}
+		SecureRsaCripto.initRsaSession(request);
+		return "login/login_cust";
+	}
+
 	// 로그인 실패시
 	@RequestMapping(value = "/loginError")
 	public String loginError(HttpServletRequest request, Model model) throws InvalidKeyException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchPaddingException {
@@ -64,8 +77,15 @@ public class LoginController {
 		return "login/login";
 	}
 
+	// Redirect with POST 로그인(자동) 처리
+	@PostMapping(value = "/loginRedirect")
+	public ModelAndView loginRedirect(HttpServletRequest request, HttpServletResponse response, Model model, String username, String password) throws Exception {
+		request.setAttribute(View.RESPONSE_STATUS_ATTRIBUTE, HttpStatus.TEMPORARY_REDIRECT);
+		return new ModelAndView("redirect:/login_post");
+	}
+
 	// 로그인(자동) 처리
-	@RequestMapping(value = "/loginProcess")
+	@PostMapping(value = "/loginProcess")
 	public String loginProcess(HttpServletRequest request, HttpServletResponse response, Model model, String username, String password) throws Exception {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		log.info("before /loginProcess Principal[{}]", authentication);
@@ -76,7 +96,7 @@ public class LoginController {
 		authentication = SecurityContextHolder.getContext().getAuthentication();
 		User user = (User)authentication.getPrincipal();
 		log.info("alfter /loginProcess Principal[{}]", user);
-		return "redirect:/main";
+		return "redirect:/main";// return "hello";
 	}
 
 
