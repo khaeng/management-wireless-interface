@@ -15,11 +15,11 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 
-import com.itcall.SpringSecurityRSA.config.handler.JteAuthenticationFailureHandler;
-import com.itcall.SpringSecurityRSA.config.handler.JteAuthenticationSuccessHandler;
-import com.itcall.SpringSecurityRSA.config.handler.JteLogoutSuccessHandler;
+import com.itcall.SpringSecurityRSA.config.handler.RsaAuthenticationFailureHandler;
+import com.itcall.SpringSecurityRSA.config.handler.RsaAuthenticationSuccessHandler;
+import com.itcall.SpringSecurityRSA.config.handler.RsaLogoutSuccessHandler;
 
 @Configuration
 @EnableWebSecurity
@@ -40,7 +40,7 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 	@Override
 	public void configure(WebSecurity web) throws Exception
 	{
-		web.ignoring().antMatchers("/favicon.ico", "/css/**", "/js/**", "/image/**", "/error/**", "/loginProcess");
+		web.ignoring().antMatchers("/favicon.ico", "/css/**", "/js/**", "/image/**", "/error/**", "/loginProcess", "/loginRedirect", "/loginCust");
 	}
 
 	@Override
@@ -48,8 +48,8 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 		int sessionDuplicatedMaxCount = sessionDuplicatedMaxCountByCmd>0 ? sessionDuplicatedMaxCountByCmd : this.sessionDuplicatedMaxCount;
 
 		http.authorizeRequests()
-				.antMatchers("/css/**", "/js/**", "/image/**", "/loginProcess").permitAll()
-				.antMatchers("/login").permitAll()
+				.antMatchers("/css/**", "/js/**", "/image/**", "/loginProcess", "/loginRedirect", "/loginCust").permitAll()
+				.antMatchers("/login", "/loginCust").permitAll()
 				.antMatchers("/api/root/**").hasRole("ROOT")
 				.antMatchers("/api/admin/**").hasAnyRole("ROOT", "ADMIN")
 				.antMatchers("/api/user/**").hasAnyRole("ROOT", "ADMIN", "USER")
@@ -58,20 +58,20 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 		http.formLogin().loginPage("/login") // default
 				// 아래부분은 구현해야할지 테스트해봐야 한다.
 				.loginProcessingUrl("/login_post").failureUrl("/login?error") // default
-				.defaultSuccessUrl("/home").usernameParameter("username").passwordParameter("password")
-				.successHandler(new JteAuthenticationSuccessHandler()) // 로그인 성공 핸들러
-				.failureHandler(new JteAuthenticationFailureHandler()) // 로그인 실패 핸들러
+				.defaultSuccessUrl("/main").usernameParameter("username").passwordParameter("password")
+				.successHandler(new RsaAuthenticationSuccessHandler()) // 로그인 성공 핸들러
+				.failureHandler(new RsaAuthenticationFailureHandler()) // 로그인 실패 핸들러
 				.permitAll();
 
 		http.logout().logoutUrl("/logout") // default
 				.logoutSuccessUrl("/login")
-				.logoutSuccessHandler(new JteLogoutSuccessHandler())
+				.logoutSuccessHandler(new RsaLogoutSuccessHandler())
 				.invalidateHttpSession(true)
 				.permitAll();
 //		http.logout().invalidateHttpSession(true)
 //				.logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
 //				.logoutSuccessUrl("/login")
-//				.logoutSuccessHandler(new JteLogoutSuccessHandler())
+//				.logoutSuccessHandler(new RsaLogoutSuccessHandler())
 //				.permitAll();
 
 		http.exceptionHandling().accessDeniedPage("/error/error");
@@ -85,7 +85,9 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 				.expiredUrl("/login");
 
 		http
+				// .csrf().csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()).and()
 				.csrf().disable()
+				
 				.headers().frameOptions().sameOrigin().disable()
 				// .addFilterBefore(beforeFilter01, SwitchUserFilter.class)
 				// .addFilterBefore(beforeFilter02, SwitchUserFilter.class)
