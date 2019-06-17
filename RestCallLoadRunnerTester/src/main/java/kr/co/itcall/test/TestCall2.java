@@ -1,4 +1,4 @@
-package com.kt.biznaru;
+package kr.co.itcall.test;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -28,7 +28,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
-// import com.kt.biznaru.lamp.util.RestTemplateLampLoggerInterceptor;
+// import kr.co.itcall.test.lamp.util.RestTemplateLampLoggerInterceptor;
 
 public class TestCall2 {
 

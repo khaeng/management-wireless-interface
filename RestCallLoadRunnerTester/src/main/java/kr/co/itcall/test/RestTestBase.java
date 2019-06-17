@@ -1,4 +1,4 @@
-package com.kt.biznaru;
+package kr.co.itcall.test;
 
 import java.io.BufferedWriter;
 import java.io.File;

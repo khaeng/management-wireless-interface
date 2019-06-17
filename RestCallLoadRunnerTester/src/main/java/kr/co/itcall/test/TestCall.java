@@ -1,4 +1,4 @@
-package com.kt.biznaru;
+package kr.co.itcall.test;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -19,7 +19,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 
-// import com.kt.biznaru.lamp.util.RestTemplateLampLoggerInterceptor;
+// import kr.co.itcall.test.lamp.util.RestTemplateLampLoggerInterceptor;
 
 public class TestCall extends RestTestBase {
 
