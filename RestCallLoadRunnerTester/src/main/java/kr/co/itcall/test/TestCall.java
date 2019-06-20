@@ -335,83 +335,6 @@ public class TestCall extends RestTestBase {
 
 
 
-//		
-//		httpHeaders.set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-//		resultStr = runTest("http://dev.biznaru.kt.com/om/basMgt/codeMgt/getCode", "page=1&take=20&rows=20&cdGroupId=&cdId=&cdNm=", this.httpHeaders);
-//		System.out.println(resultStr);
-//
-//		httpHeaders.set("Content-Type", "application/json; charset=UTF-8");
-//		resultStr = runTest("http://dev.biznaru.kt.com/om/basMgt/codeMgt/getCode", "{\"page\":1, \"take\":20, \"rows\":20, \"cdGroupId\":, \"cdId\":, \"cdNm\":}", this.httpHeaders);
-//		System.out.println(resultStr);
-//
-//		httpHeaders.set("Content-Type", "application/json; charset=UTF-8");
-//		resultStr = runTest("http://dev.biznaru.kt.com/om/common/myInfo", "", this.httpHeaders, HttpMethod.GET);
-//		System.out.println(resultStr);
-//		
-//		
-//		
-//		
-//		// ServiceBus테스트용 헤드(로그인 필요없음)
-//		httpHeaders.set("Content-Type", "application/json;charset=UTF-8");
-//		httpHeaders.set("Accept", "application/json;charset=UTF-8");
-//		httpHeaders.set("authorization", "Basic ZG9tYWluX3VzZXI6ZG9tYWluX3VzZXI=");
-//		httpHeaders.remove(HttpHeaders.COOKIE);
-//
-//
-//		final String url276 = "https://tb.portal.biznaru.kt.com/ServiceBus/biznaru/shub/sb276.json";
-//		final String url149 = "https://tb.portal.biznaru.kt.com/ServiceBus/biznaru/shub/sb149.json";
-//		final String params = "{\r\n" + 
-//				"	\"recvCtn\":\"01011112222\",\r\n" + 
-//				"	\"content\":\"비즈나루 통합 SMS 단문1\"\r\n" + 
-//				"}";
-//
-//		for (long i = 0; i < totalTestCount; i++) {
-//			Runnable runnable = new Runnable() {@Override public void run() {
-//				long totCnt = ++totalProcessCount;
-//				StringBuffer result = new StringBuffer();
-//				try {
-//					String threadName = Thread.currentThread().getName();
-//					addTheadCount(threadName);
-//					result.append("Start[").append(timeFormat.format(new Date())).append("] | End[] | ").append("Thread[").append(threadName).append("] | ");
-//					if(totCnt%3!=0) {
-//						result.append(runTest(url149, params, httpHeaders));
-//					}else {
-//						result.append(runTest(url276, params, httpHeaders));
-//					}
-//					result.insert(0, "] : ").insert(0, errorCount).insert(0, "], 실패[").insert(0, totalSuccCount).insert(0, " : 성공[").insert(0, totCnt)
-//							.insert(result.indexOf("End")+4, timeFormat.format(new Date()));
-//					addLog(result.toString() + "\n");
-//					if(totCnt%1000==0) {
-//						System.out.println(result.toString());
-//					}
-//				} catch (IOException e) {
-//					e.printStackTrace();
-//				} finally {
-//					if(totCnt>=totalTestCount) {
-//						result.setLength(0);
-//						result.append("테스트가 종료되었습니다.\n")
-//						.append("전체 테스트 개수 : ").append(totalProcessCount).append("\n")
-//						.append("호출 테스트 성공 : ").append(totalSuccCount).append("\n")
-//						.append("호출 테스트 실패 : ").append(errorCount).append("\n")
-//						.append("성공과 실패는 테스터의 단순 호출에 대한 실패카운트이며, 성공내에서 실패된 서비스는 별도 로그를 체크해야 합니다.").append("\n")
-//						.append("사용된 Thread 개수 : ").append(countOfThead.size()).append("\n")
-//						;
-//						long totalThreadRunCount = 0;
-//						for (String threadName : countOfThead.keySet()) {
-//							totalThreadRunCount+=countOfThead.get(threadName);
-//							result.append("Thread[").append(threadName).append("] : ").append(countOfThead.get(threadName)).append(" EA\n");
-//						}
-//						result.append("Thread Total Run Count : ").append(totalThreadRunCount).append("\n");
-//						try {try {Thread.sleep(10* 1000);} catch (InterruptedException e) {} addLogFlush(result.toString());logFileClose();} catch (IOException e) {}
-//						System.out.println(result.toString());
-//						System.exit(0);
-//					}
-//				}
-//				try {Thread.sleep(1000);} catch (InterruptedException e) {}
-//				}};
-//			executor.execute(runnable);
-//			// try {Thread.sleep(100);} catch (InterruptedException e) {}
-//		}
 	}
 
 
@@ -431,26 +354,6 @@ public class TestCall extends RestTestBase {
 	public String runTest(String url, String params, HttpHeaders httpHeaders, HttpMethod httpMethod) {
 		
 		MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
-////		headers.add("Content-Type", "application/json;charset=UTF-8");
-////		headers.add("Accept", "application/json;charset=UTF-8");
-////		headers.add("authorization", "Basic ZG9tYWluX3VzZXI6ZG9tYWluX3VzZXI=");
-//		headers.add("Accept-Charset", "UTF-8");
-////		
-////		
-////		headers.add("Host", "dev.biznaru.kt.com");
-////		headers.add("Connection", "keep-alive");
-//		if(httpHeaders.get("Content-Type")==null || httpHeaders.get("Content-Type").size()<=0)
-//			httpHeaders.add("Content-Type", "application/json; charset=UTF-8");
-//		if(httpHeaders.get("Accept")==null || httpHeaders.get("Accept").size()<=0)
-//			headers.add("Accept", "*/*"); // headers.add("Accept", "application/json, text/javascript, */*; q=0.01");
-////		headers.add("Origin", "http://dev.biznaru.kt.com");
-////		headers.add("X-Requested-With", "XMLHttpRequest");
-////		headers.add("User-Agent", "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36");
-////		headers.put("Content-Type", httpHeaders.get("Content-Type"));
-////		headers.add("Referer", "http://dev.biznaru.kt.com/om/");
-////		headers.add("Accept-Encoding", "gzip, deflate");
-////		headers.add("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7,mt;q=0.6,fr;q=0.5");
-////		headers.put("Cookie", httpHeaders.get(HttpHeaders.COOKIE)); // 진입전에 넣어준다.
 
 		if (httpHeaders != null) {
 			for (String key : httpHeaders.keySet()) {
@@ -459,13 +362,9 @@ public class TestCall extends RestTestBase {
 		}
 
 		HttpEntity<Object> entity = new HttpEntity<Object>(params, headers);
-		// entity.getHeaders().set("Accept-Charset", "UTF-8");;
 		String response = null;
 		try {
 			switch (httpMethod) {
-//			case GET:
-//				response = restTemplate(false).getForObject(url, String.class, entity);
-//				break;
 			case POST:
 				response = restTemplate(this.constants.isLogging()).postForObject(url, entity, String.class);
 				break;
@@ -478,7 +377,6 @@ public class TestCall extends RestTestBase {
 		} catch (Exception e) {
 			addErrorCount();
 			response = "Exception.ERROR ::: " + e.getMessage() + " | " + e;
-//			e.printStackTrace();
 		}
 		return response;
 	}
@@ -502,27 +400,6 @@ public class TestCall extends RestTestBase {
 	}
 	public String loginTest(String url, String params, RestTemplateInterceptor restTemplateInterceptor, HttpMethod httpMethod, HttpHeaders httpHeaders) throws Exception {
 		MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
-////		headers.add("Content-Type", "application/json;charset=UTF-8");
-////		headers.add("Accept", "application/json;charset=UTF-8");
-//		// headers.add("authorization", "Basic ZG9tYWluX3VzZXI6ZG9tYWluX3VzZXI=");
-//		headers.add("Accept-Charset", "UTF-8");
-//		
-////		headers.add("Host", "dev.biznaru.kt.com");
-//		headers.add("Connection", "keep-alive");
-////		if(httpHeaders.get("Content-Type")==null || httpHeaders.get("Content-Type").size()<=0)
-////			httpHeaders.add("Content-Type", "application/json; charset=UTF-8");
-////		if(httpHeaders.get("Accept")==null || httpHeaders.get("Accept").size()<=0)
-////			headers.add("Accept", "application/json, text/javascript, */*; q=0.01");
-//		headers.add("Accept", "*/*");
-////		headers.add("Origin", "http://dev.biznaru.kt.com");
-//		headers.add("X-Requested-With", "XMLHttpRequest");
-//		headers.add("User-Agent", "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36");
-//		headers.add("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-////		headers.add("Referer", "http://dev.biznaru.kt.com/om/login");
-//		headers.add("Accept-Encoding", "gzip, deflate");
-//		headers.add("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7,mt;q=0.6,fr;q=0.5");
-//		headers.add("Cookie", restTemplateInterceptor.getCookie());
-//		// headers.add("Cookie", "");
 		
 		if (httpHeaders != null) {
 			for (String key : httpHeaders.keySet()) {
@@ -534,9 +411,6 @@ public class TestCall extends RestTestBase {
 		String response = null;
 		try {
 			switch (httpMethod) {
-//			case GET:
-//				response = restTemplateForLogin(restTemplateInterceptor).getForObject(url, String.class, entity);
-//				break;
 			case POST:
 				response = restTemplateForLogin(restTemplateInterceptor).postForObject(url, entity, String.class);
 				break;
