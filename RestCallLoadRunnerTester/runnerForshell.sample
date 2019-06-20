@@ -1,0 +1,11 @@
+
+# Need for Java 8 or Over.
+
+# Running Start RestCallLoadRunner
+java -jar -Dfile.encoding=UTF-8 RestCallLoadRunnerTester.jar start [config-file-path]
+
+
+# Stop RestCallLoadRunner
+java -jar -Dfile.encoding=UTF-8 RestCallLoadRunnerTester.jar stop [config-file-path] [host/ip-addr]
+
+
