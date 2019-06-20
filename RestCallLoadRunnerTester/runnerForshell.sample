@@ -9,3 +9,7 @@ java -jar -Dfile.encoding=UTF-8 RestCallLoadRunnerTester.jar start [config-file-
 java -jar -Dfile.encoding=UTF-8 RestCallLoadRunnerTester.jar stop [config-file-path] [host/ip-addr]
 
 
+# Sample to default Laucher...
+java -jar -Dfile.encoding=UTF-8 RestCallLoadRunnerTester.jar start base.conf
+
+
