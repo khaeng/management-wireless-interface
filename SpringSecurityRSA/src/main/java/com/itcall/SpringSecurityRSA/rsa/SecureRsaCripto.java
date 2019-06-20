@@ -25,6 +25,7 @@ import javax.servlet.http.HttpSession;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -90,7 +91,7 @@ public class SecureRsaCripto {
 	}
 
 	public static void initRsaSession(HttpServletRequest request) throws InvalidKeyException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchPaddingException {
-		HttpSession session = request.getSession(false);
+		HttpSession session = request.getSession(true);
 		DynamicKeyPairRSA dynamicKeyPairRSA = getOneTimeRSA();
 		session.removeAttribute(RSA_DYNMIC_KEY);
 		session.setAttribute(RSA_DYNMIC_KEY, dynamicKeyPairRSA.getPrivateKey());
@@ -117,13 +118,73 @@ public class SecureRsaCripto {
 		PrivateKey privateKey = null;
 		PKCS8EncodedKeySpec privateKeySpec = new PKCS8EncodedKeySpec(bPrivateKey);
 		privateKey = keyFactory.generatePrivate(privateKeySpec);
-		
 		Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
 		byte[] encryptedBytes = hexToByteArray(securedValue);
 		cipher.init(Cipher.DECRYPT_MODE, privateKey);
 		byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
 		String decryptedValue = new String(decryptedBytes, "utf-8"); // 문자 인코딩 주의.
 		return decryptedValue;
+	}
+
+	public static String encryptRsa(String data, String publicKeyStr, Charset charset) throws NoSuchAlgorithmException, InvalidKeyException, InvalidKeySpecException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException {
+		KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+		byte[] bPublicKey = Base64.getDecoder().decode(publicKeyStr.getBytes());
+		PublicKey publicKey = null;
+		X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(bPublicKey);
+		publicKey = keyFactory.generatePublic(publicKeySpec);
+		Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+		cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+		byte[] bCipher = cipher.doFinal(data.getBytes(charset));
+		return byteArrayToHex(bCipher);
+	}
+
+	public static void main(String[] args) throws InvalidKeyException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchPaddingException {
+
+		System.out.println(String.format("%,03.2f(Tps)",0.234));
+		if(true)return ;
+		String testArr = byteArrayToHex(new byte[] {0, 64, 32});
+		byte[] bts = hexToByteArray(testArr);
+		System.out.println(new String(bts));
+
+		DynamicKeyPairRSA dynamicKeyPairRSA = getOneTimeRSA();
+		String test = "asdfa한글test123";
+		try {
+			String encData = encryptRsa(test, dynamicKeyPairRSA.getPublicKey(), Charset.forName("UTF-8"));
+			System.out.println(decryptRsa(encData, dynamicKeyPairRSA.getPrivateKey()));
+			
+			encData = encryptRsaBase64(test, dynamicKeyPairRSA.getPublicKey(), Charset.forName("UTF-8"));
+			System.out.println(decryptRsaBase64(encData, dynamicKeyPairRSA.getPrivateKey()));
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	public static String decryptRsaBase64(String securedValue, String privateKeyStr) throws Exception {
+		KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+		byte[] bPrivateKey = Base64.getDecoder().decode(privateKeyStr.getBytes());
+		PrivateKey privateKey = null;
+		PKCS8EncodedKeySpec privateKeySpec = new PKCS8EncodedKeySpec(bPrivateKey);
+		privateKey = keyFactory.generatePrivate(privateKeySpec);
+		Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+		byte[] encryptedBytes = Base64.getDecoder().decode(securedValue.getBytes()); // hexToByteArray(securedValue);
+		cipher.init(Cipher.DECRYPT_MODE, privateKey);
+		byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+		String decryptedValue = new String(decryptedBytes, "utf-8"); // 문자 인코딩 주의.
+		return decryptedValue;
+	}
+
+	public static String encryptRsaBase64(String data, String publicKeyStr, Charset charset) throws NoSuchAlgorithmException, InvalidKeyException, InvalidKeySpecException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException {
+		KeyFactory keyFactory2 = KeyFactory.getInstance("RSA");
+		byte[] bPublicKey = Base64.getDecoder().decode(publicKeyStr.getBytes());
+		X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(bPublicKey);
+		PublicKey publicKey = keyFactory2.generatePublic(publicKeySpec);
+		Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+		// 공개키 이용 암호화
+		cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+		byte[] bCipher = cipher.doFinal(data.getBytes());
+		String sCipherBase64 = Base64.getEncoder().encodeToString(bCipher);
+		return sCipherBase64;
 	}
 
 	/**
@@ -142,6 +203,14 @@ public class SecureRsaCripto {
 			bytes[(int) Math.floor(i / 2)] = value;
 		}
 		return bytes;
+	}
+
+	public static String byteArrayToHex(byte[] buf) {
+		StringBuffer sb = new StringBuffer();
+		for (byte b : buf) {
+			sb.append(String.format("%02x", b));
+		}
+		return sb.toString();
 	}
 
 }

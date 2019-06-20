@@ -4,10 +4,14 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.util.List;
 import java.util.Properties;
 
 import org.springframework.beans.factory.config.PropertiesFactoryBean;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.util.StringUtils;
 
 public class Constants {
@@ -16,9 +20,9 @@ public class Constants {
 	private Properties properties;
 
 	/* for TaskExecutor */
-	private int executorCorePoolSize = 10;
-	private int executorMaxPoolSize = 20;
-	private int executorQueueCapacity = 1000000;
+	private int executorCorePoolSize = 10;	// 멀티프로세스 카운트.
+	private int executorMaxPoolSize = 20;	// 멀티프로세스의 2배.(Active)
+	private int executorQueueCapacity = 1000000; // Active 개수의 100배.(Max의 100배)
 
 	/* for RestUtil */
 	private int maxConnTotalForRestClient = 100;
@@ -27,16 +31,21 @@ public class Constants {
 	private int connectionTimeoutForRestClient = 90;
 	private int readTimeoutForRestClient = 90;
 
+	private String propertiesFileName = BASE_PROPERTIES_FILE_NAME;
+
 	public Constants(String propertiesFile) throws IOException {
 		if(StringUtils.isEmpty(propertiesFile)) {
 			this.properties = readProperties(new File(BASE_PROPERTIES_FILE_NAME));
 		} else {
+			this.propertiesFileName = propertiesFile;
 			this.properties = readProperties(new File(propertiesFile));
 		}
-		this.executorCorePoolSize = getTotalMultiConnector();
+		this.executorQueueCapacity = (this.executorMaxPoolSize = (this.executorCorePoolSize = getTotalMultiConnector()) * 2) * 100;
 	}
 
-	
+	public String getPropertiesFileName() {
+		return propertiesFileName;
+	}
 
 	public int getExecutorCorePoolSize() {
 		return executorCorePoolSize;
@@ -156,10 +165,6 @@ public class Constants {
 		return this.executorCorePoolSize = Integer.parseInt(this.properties.getProperty("test.multi.count", ""+this.executorCorePoolSize));
 	}
 
-	public String getCookie() {
-		return this.properties.getProperty("login.cookie", "JSESSIONID=Jj8d8pUkU5YYN7gVzm6BZzTY.biz11; NSSO_CentralAuth=4b64f6691c3f6a4cbd13f48e3b96bef1dd4ae16807ad29d87c300972497249adf073d8e8b8a85f46dddd49c3020875ea460060f37e29b1469e1cdd598e25564e590c6f91cda0c7c178401c1f22545ee7; NSSO_DomainInfo_kt_com=agencynm%3d615d4936bef356e5%2cdepartment%3d615d4936bef356e5%2cdeptcd%3d754ee8914e6397fb%2chandphoneno%3d46cd230c27291259fb41303db22be0a0%2cnewuserid%3d9f836bb751a6fdb8d25bcdf1072bec86%2colduserid%3d9f836bb751a6fdb8d25bcdf1072bec86%2cusermail%3d9f836bb751a6fdb822a131b56d2be1ed8378307cfd51a9cf%2cusername%3de0efb10f74cda04a; KTSSOKey=2ec095b6a62d57c357b32f9ffc669327; KTSSOUserID=dddc009724ad5e53f54a8a4a12dd26de; gwPermKey=; nssoauthdomain=9131bfcdfa6014f274d288ce12e28d22; s_fid=5CB7C44FB05AB8F4-0AEE6FF833439F69; strCode=Web; NSSO_DomainAuth_kt_com=1d66ce763a20bb14d8fce3726454f3c4bbf84c7e1af0508010bf36c5d58aa6d2aeb58eb3a20d123630f93e4550a652e90e82d0b5f1a61dd7be573d48469b019844bc7b6d4cfeb4ea; fileDownload=true");
-	}
-
 	public boolean isRsaLoginId() {
 		return "YESTRUE".contains(this.properties.getProperty("login.rsa.id.yn", "N").toUpperCase());
 	}
@@ -172,28 +177,103 @@ public class Constants {
 	public String getPassword() {
 		return this.properties.getProperty("login.password", "rjsdud12!@");
 	}
-	public String getLoginPageContentType() {
-		return this.properties.getProperty("login.page.content.type", "text/html; charset=UTF-8");
-	}
-	public String getLoginPageAccept() {
-		return this.properties.getProperty("login.page.accept", "text/html; charset=UTF-8");
-	}
 	public String getLoginPageUrl() {
-		return this.properties.getProperty("login.page.url", "http://dev.biznaru.kt.com/om/login");
+		return this.properties.getProperty("login.page.url", "http://localhost:8080/login");
 	}
 	public String getRsaModuleId() {
-		return this.properties.getProperty("login.rsa.module.id", "RSAModulus");
+		return this.properties.getProperty("login.rsa.module.id"); // , "RSAModulus");
+	}
+	public String getRsaModuleStart() {
+		return this.properties.getProperty("login.rsa.module.start");
+	}
+	public String getRsaModuleEnd() {
+		return this.properties.getProperty("login.rsa.module.end");
 	}
 	public String getRsaExponentId() {
-		return this.properties.getProperty("login.rsa.exponent.id", "RSAExponent");
+		return this.properties.getProperty("login.rsa.exponent.id"); // , "RSAExponent");
+	}
+	public String getRsaExponentStart() {
+		return this.properties.getProperty("login.rsa.exponent.start");
+	}
+	public String getRsaExponentEnd() {
+		return this.properties.getProperty("login.rsa.exponent.end");
 	}
 	public String getRsaPublicId() {
-		return this.properties.getProperty("login.rsa.public.id", "RSAPublic");
+		return this.properties.getProperty("login.rsa.public.id"); // , "RSAPublic");
+	}
+	public String getRsaPublicStart() {
+		return this.properties.getProperty("login.rsa.Public.start");
+	}
+	public String getRsaPublicEnd() {
+		return this.properties.getProperty("login.rsa.Public.end");
 	}
 	public String getLoginProcessUrl() {
-		return this.properties.getProperty("login.process.url", "http://dev.biznaru.kt.com/om/login_post");
+		return this.properties.getProperty("login.process.url", "http://localhost:8080/login_post");
 	}
 	public String getLoginProcessParams() {
 		return this.properties.getProperty("login.process.params", "otpChkYn=N&userId=${login.id}&password=${login.password}"); // "{\r\n	\"userId\":\"${login.id}\",\r\n	\"password\":\"${login.password}\"\r\n}";
 	}
+	/** 멀티 호출개수만큼 테스트 Runnalbe을 만들고. 테스트한다. 각 테스트는 앞 테스트가 종료(완료)된 후 실행된다. 한 루프가 돌면 다시 처음부터 호출된다. **/
+	public boolean isLoopRelayTest() {
+		return "YESTRUE".contains(this.properties.getProperty("test.loop.relay.yn", "N").toUpperCase());
+	}
+	public long getSleepTimeBeforeGroup() {
+		return Long.parseLong(this.properties.getProperty("test.group.sleep", "100"));
+	}
+	public long getSleepTimeBeforeTest(long testNum) {
+		return Long.parseLong(this.properties.getProperty("test."+testNum+".sleep", "10"));
+	}
+	public HttpMethod getTestHttpMethod(long testNum) {
+		return HttpMethod.valueOf(this.properties.getProperty("test."+testNum+".method", "POST"));
+	}
+	public HttpHeaders getTestHeaderInfo(long testNum, HttpHeaders httpHeaders) {
+		return getHeaderInfoFromProperties("test."+testNum+".header.", httpHeaders);
+	}
+	public String getTestUrlInfo(long testNum) {
+		return this.properties.getProperty("test."+testNum+".url");
+	}
+	public String getTestParamsInfo(long testNum) {
+		return this.properties.getProperty("test."+testNum+".params");
+	}
+	public boolean isKeepSession(long testNum) {
+		return "YESTRUE".contains(this.properties.getProperty("test."+testNum+".keep.session.yn", "N").toUpperCase());
+	}
+	public int getWaitPort() {
+		return Integer.parseInt(this.properties.getProperty("test.wait.port", "9991"));
+	}
+
+	public HttpHeaders getLoginPageHeaderInfo(HttpHeaders httpHeaders) {
+		return getHeaderInfoFromProperties("login.page.header.", httpHeaders);
+	}
+	public HttpHeaders getLoginProcessHeaderInfo(HttpHeaders httpHeaders) {
+		return getHeaderInfoFromProperties("login.process.header.", httpHeaders);
+	}
+	public HttpHeaders getHeaderInfoFromProperties(String baseKey, HttpHeaders httpHeaders) {
+		HttpHeaders outputHeaders = new HttpHeaders();
+		if(httpHeaders!=null) {
+			for (String header: httpHeaders.keySet()) {
+				outputHeaders.put(header, httpHeaders.get(header));
+			}
+		}
+		for (int i = 0; i < 100; i++) {
+			String key = this.properties.getProperty(baseKey+i+".key");
+			if(StringUtils.isEmpty(key))
+				break;
+			outputHeaders.remove(key); // 키가 존재하면 원래 해더의 키는 무조건 삭제한다.
+			String value = this.properties.getProperty(baseKey+i+".value");
+			if(value!=null) {
+				outputHeaders.add(key, value); // value가 존재하면 무조건 Overwirte한다. 공백이면, 삭제하는 효과.
+			}
+		}
+		return outputHeaders;
+	}
+
+	public int getPrintLogTerm() {
+		return Integer.parseInt(this.properties.getProperty("log.print.term", "10"));
+	}
+
+	public Charset getTestCharset() {
+		return Charset.forName(this.properties.getProperty("test.charset", "UTF-8"));
+	}
+
 }

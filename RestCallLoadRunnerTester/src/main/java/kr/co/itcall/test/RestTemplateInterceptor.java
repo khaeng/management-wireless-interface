@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.List;
 
+import org.apache.http.Header;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.client.ClientHttpRequestExecution;
@@ -16,12 +17,17 @@ public class RestTemplateInterceptor implements ClientHttpRequestInterceptor {
 
 	private HttpHeaders httpHeaders;
 	private String cookie;
+	private boolean isLogging;
 
 	public RestTemplateInterceptor() {
-		this("");
+		this(null, false);
 	}
-	public RestTemplateInterceptor(String cookie) {
-		this.cookie = cookie;
+//	public RestTemplateInterceptor(String cookie) {
+//		this.cookie = cookie;
+//	}
+	public RestTemplateInterceptor(HttpHeaders httpHeaders, boolean isLogging) {
+		setHttpHeaders(httpHeaders);
+		this.isLogging = isLogging;
 	}
 
 	@Override
@@ -30,7 +36,7 @@ public class RestTemplateInterceptor implements ClientHttpRequestInterceptor {
 		ClientHttpResponse response = null;
 		String respBody = null;
 		try {
-			traceRequest(request, body);
+			if(isLogging) traceRequest(request, body);
 			response = execution.execute(request, body);
 			respBody = traceResponse(response);
 		} finally {
@@ -56,34 +62,58 @@ public class RestTemplateInterceptor implements ClientHttpRequestInterceptor {
 			inputStringBuilder.append('\n');
 			line = bufferedReader.readLine();
 		}
-		if(!StringUtils.isEmpty(this.cookie)) {
+		if(this.httpHeaders!=null) {
 			// this.httpHeaders = response.getHeaders();
 			List<String> setCookie = response.getHeaders().get(HttpHeaders.SET_COOKIE);
-			String newCookie = setCookie.get(0);
-			System.out.println(newCookie);
-			newCookie = newCookie.substring(0, newCookie.indexOf(";"));
-			System.out.println(newCookie);
-			this.cookie = newCookie + cookie.substring(cookie.indexOf(";"));
-			System.out.println(this.cookie);
-			this.httpHeaders = new HttpHeaders();
-			this.httpHeaders.set("Cookie", cookie);
-			this.httpHeaders.remove(HttpHeaders.SET_COOKIE);
+			if(setCookie!=null && setCookie.size()>0) {
+				String newCookie = setCookie.get(0);
+				if(isLogging) System.out.println("요청결과에 의한 신규수신 쿠키 : " + newCookie);
+				newCookie = newCookie.substring(0, newCookie.indexOf(";"));
+				this.cookie = newCookie + (cookie==null||cookie.indexOf(";")<0?"":cookie.substring(cookie.indexOf(";")));
+				// this.httpHeaders = new HttpHeaders();
+				this.httpHeaders.set(HttpHeaders.COOKIE, cookie);
+				this.httpHeaders.remove(HttpHeaders.SET_COOKIE);
+				if(isLogging) System.out.println("요청결과에 의한 최종 변경적용 쿠키 : " + this.cookie);
+			}
 		}
-		System.out.println("===========================[ RestTemplate Outbound Response Begin ]============================================");
-		System.out.println("Status code  : " + response.getStatusCode());
-		System.out.println("Status text  : " + response.getStatusText());
-		System.out.println("Headers      : " + response.getHeaders());
-		System.out.println("Response body: " + inputStringBuilder.toString());
-		System.out.println("===========================[ RestTemplate Outbound Response End ]============================================");
+		if(isLogging) {
+			System.out.println("===========================[ RestTemplate Outbound Response Begin ]============================================");
+			System.out.println("Status code  : " + response.getStatusCode());
+			System.out.println("Status text  : " + response.getStatusText());
+			System.out.println("Headers      : " + response.getHeaders());
+			System.out.println("Response body: " + inputStringBuilder.toString());
+			System.out.println("===========================[ RestTemplate Outbound Response End ]============================================");
+		}
 		return inputStringBuilder.toString();
 	}
 
 	public HttpHeaders getHttpHeaders() {
 		return httpHeaders;
 	}
+	public void setHttpHeaders(HttpHeaders httpHeaders) {
+		this.httpHeaders = httpHeaders;
+		if(this.httpHeaders!=null) {
+			if(this.httpHeaders.get(HttpHeaders.COOKIE)!=null && this.httpHeaders.get(HttpHeaders.COOKIE).size()>0) {
+				this.cookie = this.httpHeaders.get(HttpHeaders.COOKIE).get(0);
+			}
+		}
+	}
+
 
 	public String getCookie() {
 		return cookie;
+	}
+	public void setCookie(String setCookie) {
+		if(isLogging) System.out.println("요청결과에 의한 redirection 신규수신 쿠키 : " + setCookie);
+		this.cookie = setCookie + (!StringUtils.isEmpty(this.cookie) && this.cookie.indexOf(";")>=0 ? cookie.substring(cookie.indexOf(";")):"");
+		// this.httpHeaders = new HttpHeaders();
+		this.httpHeaders.set("Cookie", cookie);
+		this.httpHeaders.remove(HttpHeaders.SET_COOKIE);
+		if(isLogging) System.out.println("요청결과에 의한 redirection 변경적용 쿠키 : " + this.cookie);
+	}
+
+	public boolean isLogging() {
+		return isLogging;
 	}
 
 }
