@@ -16,11 +16,15 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.Executor;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
@@ -34,7 +38,13 @@ import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public abstract class RestTestBase {
 
@@ -56,6 +66,7 @@ public abstract class RestTestBase {
 	protected static boolean isLoopRelayTest;
 	protected static int loopTestCount;
 	protected static int totalMultiConnector;
+	protected static ObjectMapper objectMapper;
 
 	private RestTemplate[] arrRestTemplateForRestClient;
 	private RestTemplate restTemplateForRestClientForLogin;
@@ -66,13 +77,23 @@ public abstract class RestTestBase {
 	protected String logFileName;
 
 
-	public RestTestBase(Constants constants) throws IOException {
+
+	public RestTestBase(Constants constants) {
 		this.constants = constants;
+		this.charset = this.constants.getTestCharset(); // 테스트 시작과 종료시 모두 사용하므로...
+	}
+
+	protected void initialize() throws IOException {
 		this.arrRestTemplateForRestClient = new RestTemplate[this.constants.getMaxRestTemplateUnitForRestClient()];
 
 		String path = this.constants.getLogPath();
 		new File(path).mkdirs();
-		this.logFileName = path + "TestCall." + this.constants.getPropertiesFileName() + "_" + dateTimeFormat.format(new Date())+".log";
+		String logFileName = this.constants.getPropertiesFileName();
+		if(logFileName.lastIndexOf(System.getProperty("file.separator", "/"))>-1) {
+			logFileName.substring(logFileName.lastIndexOf(System.getProperty("file.separator", "/"))+1);
+		}
+		logFileName = logFileName.replaceAll("\\\\", "_").replaceAll("\\/", "_");
+		this.logFileName = logFileName = path + "TestCall." + logFileName + "_" + dateTimeFormat.format(new Date())+".log";
 		new File(logFileName).delete();
 		bwLogger = new BufferedWriter(new FileWriter(logFileName, true));
 
@@ -81,7 +102,6 @@ public abstract class RestTestBase {
 		isLoopRelayTest = this.constants.isLoopRelayTest();
 		totalTestCount = this.constants.getTotalTestCount();
 		totalMultiConnector = this.constants.getTotalMultiConnector();
-		this.charset = this.constants.getTestCharset();
 	}
 
 	public Executor getExecutor() {
@@ -160,7 +180,12 @@ public abstract class RestTestBase {
 	}
 
 	protected void addLog(String log) throws IOException {
-		this.bwLogger.write(log);
+		try {
+			this.bwLogger.write(log);
+		} catch (IOException e) {
+			if(!isExitApp)
+				throw e;
+		}
 	}
 	protected void addLogFlush(String log) throws IOException {
 		this.bwLogger.write(log);
@@ -182,18 +207,18 @@ public abstract class RestTestBase {
 						final Socket socket = serverSocket.accept();
 						new Thread(new Runnable() { @Override public void run() {
 							try {
-								socket.getOutputStream().write("Hello~. What are you want to now?".getBytes());
+								socket.getOutputStream().write("Hello~. What are you want to now?\n".getBytes());
 								socket.getOutputStream().flush();
 								byte[] bts = new byte[4096];
 								while (socket.getInputStream().read(bts)>0) {
 									if(new String(bts).trim().toLowerCase().contains("exit")) {
 										System.out.println("\n\n========================================================================\n\t사용자의 요청에 의해 테스트를 중단합니다.\n========================================================================\n");
-										socket.getOutputStream().write("Good bye we will stopping test...".getBytes());
+										socket.getOutputStream().write("Good bye we will stopping test...\n".getBytes());
 										socket.getOutputStream().flush();
 										isExitApp = true;
 										break;
 									}else {
-										socket.getOutputStream().write(getNowTestResult().getBytes(charset));
+										socket.getOutputStream().write(getNowTestResult(false).getBytes(charset));
 										socket.getOutputStream().flush();
 										socket.getOutputStream().write("\nIf you want to finished TEST. Type to 'exit'\n Your Type > ".getBytes());
 										socket.getOutputStream().flush();
@@ -216,18 +241,23 @@ public abstract class RestTestBase {
 		}).start();
 	}
 
-	protected void stopTest(String addr) throws UnknownHostException, IOException {
+	protected void stopTest(String addr) throws UnknownHostException, IOException, InterruptedException {
 		int waitPort = this.constants.getWaitPort();
 		if(waitPort>0) {
-			Socket socket = new Socket(addr, waitPort);
+			final Socket socket = new Socket(addr, waitPort);
 			try {
-				byte[] bts = new byte[4096];
-				socket.getInputStream().read(bts);
-				System.out.println(new String(bts, charset).trim());
+				Thread readThread = new Thread(new Runnable() { @Override public void run() {
+					byte[] bts = new byte[4096];
+					int readed;
+					try {
+						while ((readed=socket.getInputStream().read(bts))>0) {
+							System.out.println(new String(Arrays.copyOf(bts, readed), charset).trim());
+						}
+					} catch (IOException e) { }}});
+				readThread.start();
 				socket.getOutputStream().write("exit".getBytes());
 				socket.getOutputStream().flush();
-				socket.getInputStream().read(bts);
-				System.out.println(new String(bts, charset).trim());
+				readThread.join();
 			} finally {
 				if(socket!=null)
 					socket.close();
@@ -237,12 +267,14 @@ public abstract class RestTestBase {
 
 
 
-	private String getNowTestResult() {
+	private String getNowTestResult(boolean isEndTest) {
 		StringBuffer result = new StringBuffer();
-		if(isExitApp)
-			result.append("\n\n======================================================================================\n\t사용자의 요청에 의해 테스트가 종료되었습니다.\n\n");
-		else
-			result.append("\n\n======================================================================================\n\t테스트가 종료되었습니다.\n\n");
+		if(isEndTest) {
+			if(isExitApp)
+				result.append("\n\n======================================================================================\n\t사용자의 요청에 의해 테스트가 종료되었습니다.\n\n");
+			else
+				result.append("\n\n======================================================================================\n\t테스트가 종료되었습니다.\n\n");
+		}
 		long totalThreadRunCount = 0;
 		for (String threadName : countOfThead.keySet()) {
 			totalThreadRunCount+=countOfThead.get(threadName);
@@ -271,7 +303,7 @@ public abstract class RestTestBase {
 				.append("수행 시각(TM) : ").append(String.format("%02d:%02d:%02d.%03d", (timeGap/(60*60*1000))%24, (timeGap/(60*1000))%60, (timeGap/(1000))%60, timeGap%1000)).append("\n")
 				.append("초당 처리개수(TPS) : ").append(String.format("%,.2f(Tps)", (float)totalProcessCount/((endTestTime - startTestTime)/1000))).append("\n")
 				.append("기록된 로그파일명 : ").append(logFileName).append("\n");
-		if(isExitApp) {
+		if(isEndTest && isExitApp) {
 			result.append("\n").append("\n☆★☆★☆★☆★ 테스트 중 사용자 종료요청에 의해 중단합니다. ☆★☆★☆★☆★").append("\n");
 		}
 		;
@@ -298,7 +330,7 @@ public abstract class RestTestBase {
 //		if(isExitApp) // fileBuffer의 종료를 일정시간 기다려준다.
 //			try {Thread.sleep(10* 1000);} catch (InterruptedException e) {}
 		
-		String result = getNowTestResult();
+		String result = getNowTestResult(true);
 		
 		try {addLogFlush(result);logFileClose();} catch (IOException e) {}
 		System.out.println(result);
@@ -350,5 +382,88 @@ public abstract class RestTestBase {
 	}
 	protected static synchronized void addErrorCount() {
 		++errorCount;
+	}
+
+	protected static Map<String, Object> switchResult(String resultStr) {
+		if(StringUtils.isEmpty(objectMapper)) {
+			JsonFactory jsonFactiory = new JsonFactory();
+			objectMapper = new ObjectMapper(jsonFactiory); 
+		}
+		try {
+			return objectMapper.readValue(resultStr, Map.class);
+		} catch (IOException | NullPointerException e) {
+			return null;
+		}
+	}
+	protected static String switchParams(String params, Map<String, Object> map, Map<String, Object> mapFirstCall) {
+		if(StringUtils.isEmpty(params))
+			return "";
+		if(StringUtils.isEmpty(objectMapper)) {
+			JsonFactory jsonFactiory = new JsonFactory();
+			objectMapper = new ObjectMapper(jsonFactiory); 
+		}
+		int start = params.indexOf("${");
+		int end = params.indexOf("}", start);
+		if(-1<start && start<end) {
+			String before = params.substring(0, start);
+			String after = params.substring(end+1);
+			String switchKey = params.substring(start+2, end);
+			try {
+				if(StringUtils.isEmpty(switchKey) || StringUtils.isEmpty(map) && StringUtils.isEmpty(mapFirstCall)) {
+					return switchParams(new StringBuffer().append(before).append("\"Not supported values...\"").append(after).toString(), map, mapFirstCall);
+				} else if(!StringUtils.isEmpty(map) && !StringUtils.isEmpty(map.get(switchKey))) {
+					String switchValue = objectMapper.writeValueAsString(map.get(switchKey));
+					return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), map, mapFirstCall);
+				} else {
+					if(!StringUtils.isEmpty(map)) {
+						for (String key : map.keySet()) {
+							if(map.get(key) instanceof Map) {
+								if(!StringUtils.isEmpty(((Map) map.get(key)).get(switchKey))) {
+									String switchValue = objectMapper.writeValueAsString(((Map) map.get(key)).get(switchKey));
+									return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), map, mapFirstCall);
+								}
+							}
+						}
+					}
+					if(!StringUtils.isEmpty(mapFirstCall) && !StringUtils.isEmpty(mapFirstCall.get(switchKey))) {
+						String switchValue = objectMapper.writeValueAsString(mapFirstCall.get(switchKey));
+						return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), map, mapFirstCall);
+					} else if(!StringUtils.isEmpty(mapFirstCall)) {
+						for (String key : mapFirstCall.keySet()) {
+							if(mapFirstCall.get(key) instanceof Map) {
+								if(!StringUtils.isEmpty(((Map) mapFirstCall.get(key)).get(switchKey))) {
+									String switchValue = objectMapper.writeValueAsString(((Map) mapFirstCall.get(key)).get(switchKey));
+									return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), map, mapFirstCall);
+								}
+							}
+						}
+					}
+					return switchParams(new StringBuffer().append(before).append("").append(after).toString(), map, mapFirstCall);
+				}
+			}catch (JsonProcessingException e) {
+				return switchParams(new StringBuffer().append(before).append("\"Not convert Object to String cause [").append(e.getMessage()).append("]\"").append(after).toString(), map, mapFirstCall);
+			}
+		}
+		return params;
+	}
+
+	public static void main(String[] args) throws Exception {
+		System.out.println("asdfasdf\\asdfasdf/asdf/asdf".replaceAll("\\\\", "_").replaceAll("\\/", "_"));
+		String test = "{\"username\":${login.id},\"password\":${login.password}, \"subMap\" : { \"recvCtn\":${testSubMap}, \"content\":\"비즈나루 통합 SMS 단문1\"}, \"testKey\":${thisKey}, \r\n \"list\":${listResult}}";
+		System.out.println(test);
+		Map<String, Object> map = new HashMap<String, Object>();
+		Map<String, Object> subMap = new HashMap<String, Object>();
+		subMap.put("testSubMap", "ThisIsSubMap");
+		map.put("login.password", 212);
+		map.put("thisKey", subMap);
+		
+		List<Map<String, Object>> list = new ArrayList<Map<String,Object>>();
+		list.add(subMap);
+		list.add(subMap);
+		list.add(subMap);
+		list.add(subMap);
+		list.add(subMap);
+		map.put("listResult", list);
+		System.out.println(switchParams(test, map, null));
 	}
 }
