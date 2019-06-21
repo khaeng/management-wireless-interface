@@ -172,13 +172,16 @@ public class Constants {
 		return "YESTRUE".contains(this.properties.getProperty("login.rsa.password.yn", "N").toUpperCase());
 	}
 	public String getLoginId() {
-		return this.properties.getProperty("login.id", "91094035");
+		return this.properties.getProperty("login.id");
 	}
 	public String getPassword() {
-		return this.properties.getProperty("login.password", "rjsdud12!@");
+		return this.properties.getProperty("login.password");
 	}
 	public String getLoginPageUrl() {
-		return this.properties.getProperty("login.page.url", "http://localhost:8080/login");
+		return this.properties.getProperty("login.page.url");
+	}
+	public String getLoginPageParams() {
+		return this.properties.getProperty("login.page.params");
 	}
 	public String getRsaModuleId() {
 		return this.properties.getProperty("login.rsa.module.id"); // , "RSAModulus");
@@ -208,20 +211,20 @@ public class Constants {
 		return this.properties.getProperty("login.rsa.Public.end");
 	}
 	public String getLoginProcessUrl() {
-		return this.properties.getProperty("login.process.url", "http://localhost:8080/login_post");
+		return this.properties.getProperty("login.process.url");
 	}
 	public String getLoginProcessParams() {
-		return this.properties.getProperty("login.process.params", "otpChkYn=N&userId=${login.id}&password=${login.password}"); // "{\r\n	\"userId\":\"${login.id}\",\r\n	\"password\":\"${login.password}\"\r\n}";
+		return this.properties.getProperty("login.process.params");
 	}
 	/** 멀티 호출개수만큼 테스트 Runnalbe을 만들고. 테스트한다. 각 테스트는 앞 테스트가 종료(완료)된 후 실행된다. 한 루프가 돌면 다시 처음부터 호출된다. **/
 	public boolean isLoopRelayTest() {
 		return "YESTRUE".contains(this.properties.getProperty("test.loop.relay.yn", "N").toUpperCase());
 	}
 	public long getSleepTimeBeforeGroup() {
-		return Long.parseLong(this.properties.getProperty("test.group.sleep", "100"));
+		return Long.parseLong(this.properties.getProperty("test.group.sleep", "0"));
 	}
 	public long getSleepTimeBeforeTest(long testNum) {
-		return Long.parseLong(this.properties.getProperty("test."+testNum+".sleep", "10"));
+		return Long.parseLong(this.properties.getProperty("test."+testNum+".sleep", "0"));
 	}
 	public HttpMethod getTestHttpMethod(long testNum) {
 		return HttpMethod.valueOf(this.properties.getProperty("test."+testNum+".method", "POST"));

@@ -57,6 +57,8 @@ public class TestCall extends RestTestBase {
 
 	public void runTest() throws Exception {
 		
+		initialize();
+		
 		String resultStr = "";
 		
 		/****************************************************************
@@ -69,9 +71,10 @@ public class TestCall extends RestTestBase {
 		String loginPassword = this.constants.getPassword();
 		if(!StringUtils.isEmpty(loginId) && !StringUtils.isEmpty(loginPassword) && this.constants.isRsaLoginPassword()) {
 			String loginPageUrl = this.constants.getLoginPageUrl();
+			String loginParams = this.constants.getLoginPageParams();
 			HttpHeaders loginPageHttpHeaders = this.constants.getLoginPageHeaderInfo(this.httpHeaders);
 			restTemplateInterceptor = new RestTemplateInterceptor(loginPageHttpHeaders, this.constants.isLogging());
-			resultStr = loginTest(loginPageUrl, "", restTemplateInterceptor, HttpMethod.GET, loginPageHttpHeaders);
+			resultStr = loginTest(loginPageUrl, loginParams, restTemplateInterceptor, HttpMethod.GET, loginPageHttpHeaders);
 			this.httpHeaders = restTemplateInterceptor.getHttpHeaders();
 			// String result = runTest(loginPageUrl, "", preHttpHeaders, HttpMethod.GET);
 			System.out.println(resultStr);
@@ -146,6 +149,7 @@ public class TestCall extends RestTestBase {
 			String loginProcessUrl = this.constants.getLoginProcessUrl();
 			String loginParams = this.constants.getLoginProcessParams(); // otpChkYn=N&userId=${login.id}&password=${login.password}
 			loginParams = loginParams.replaceFirst("[$]\\{login[.]id\\}", loginId).replaceFirst("[$]\\{login[.]password\\}", loginPassword);
+			loginParams = switchParams(loginParams, switchResult(resultStr)); // 일차 수신데이터에서 변경.
 	//		RestTemplateInterceptor restTemplateInterceptor = new RestTemplateInterceptor(cookie);
 			HttpHeaders loginHttpHeaders = this.constants.getLoginProcessHeaderInfo(this.httpHeaders);
 			if(restTemplateInterceptor==null) {
@@ -179,6 +183,7 @@ public class TestCall extends RestTestBase {
 				.append("정상 종료시 계획된 전체 호출 개수 : ").append(isLoopRelayTest ? (totalMultiConnector * totalTestCount * loopTestCount) : (this.constants.getExecutorCorePoolSize() * totalTestCount * loopTestCount)).append("\n")
 				.append("---------- 수행 처리 결과 (주기적으로 출력됨) -------------").append("\n").append("\n")
 				.append("사용자가 테스트 중인 서버에 포트[").append(constants.getWaitPort()).append("]로 접근하여 테스트를 종료하거나, 진행상황을 조회할 수 있습니다.").append("\n")
+				.append("화면에 표시되는 로그주기 : ").append(this.constants.getPrintLogTerm()).append(" 회에 도달할때마다 화면에 표시되며, 전체 결과는 로그파일에 저장됩니다. 그룹을 1회로 봅니다.").append("\n")
 				.append("기록된 로그파일명 : ").append(logFileName).append("\n======================================================================================\n\n");
 		;
 		addLogFlush(result.toString());
@@ -193,16 +198,19 @@ public class TestCall extends RestTestBase {
 			for (int i = 0; i < arrThread.length; i++) {
 				Runnable runnable = new Runnable() { @Override public void run() {
 					long totalTermDoneCount = 0;
+					String resultStr=null;
 					while (totalTestCount>totalTermDoneCount) {
 						if (isExitApp/* || totalProcessCount>=totalTestCount */)
 							break;
 						++totalTermDoneCount;
-						try {Thread.sleep(constants.getSleepTimeBeforeGroup());} catch (InterruptedException e) {}
+						if(constants.getSleepTimeBeforeGroup()>0)
+							try {Thread.sleep(constants.getSleepTimeBeforeGroup());} catch (InterruptedException e) {}
 						for (long j = 0; j < totalTestCount; j++) {
 							String url = constants.getTestUrlInfo(j);
-							String params = constants.getTestParamsInfo(j);
+							String params = switchParams(constants.getTestParamsInfo(j), switchResult(resultStr));
 							if(!StringUtils.isEmpty(url)) {
-								try {Thread.sleep(constants.getSleepTimeBeforeTest(j));} catch (InterruptedException e) {}
+								if(constants.getSleepTimeBeforeTest(j)>0)
+									try {Thread.sleep(constants.getSleepTimeBeforeTest(j));} catch (InterruptedException e) {}
 								try {
 									HttpHeaders httpHeaders = constants.getTestHeaderInfo(j, TestCall.this.httpHeaders);
 									StringBuffer result = new StringBuffer();
@@ -215,9 +223,9 @@ public class TestCall extends RestTestBase {
 										} else {
 											restTemplateInterceptor.setHttpHeaders(httpHeaders);
 										}
-										result.append(runTest(url, params, restTemplateInterceptor, constants.getTestHttpMethod(j), httpHeaders));
+										result.append(resultStr = runTest(url, params, restTemplateInterceptor, constants.getTestHttpMethod(j), httpHeaders));
 									} else {
-										result.append(runTest(url, params, httpHeaders, constants.getTestHttpMethod(j)));
+										result.append(resultStr = runTest(url, params, httpHeaders, constants.getTestHttpMethod(j)));
 									}
 									result.insert(0, "] : ").insert(0, errorCount).insert(0, "], 실패[").insert(0, totalSuccCount).insert(0, " : 성공[").insert(0, addTotalCount())
 											.insert(result.indexOf("End")+4, timeFormat.format(new Date()));
@@ -269,9 +277,10 @@ public class TestCall extends RestTestBase {
 				final long totalTermDoneCount = i;
 				Runnable runnable = new Runnable() { @Override public void run() {
 					try {Thread.sleep(constants.getSleepTimeBeforeGroup());} catch (InterruptedException e) {}
+					String resultStr=null;
 					for (long j = 0; j < totalTestCount; j++) {
 						String url = constants.getTestUrlInfo(j);
-						String params = constants.getTestParamsInfo(j);
+						String params = switchParams(constants.getTestParamsInfo(j), switchResult(resultStr));
 						if(!StringUtils.isEmpty(url)) {
 							try {Thread.sleep(constants.getSleepTimeBeforeTest(j));} catch (InterruptedException e) {}
 							try {
@@ -286,9 +295,9 @@ public class TestCall extends RestTestBase {
 									} else {
 										restTemplateInterceptor.setHttpHeaders(httpHeaders);
 									}
-									result.append(runTest(url, params, restTemplateInterceptor, constants.getTestHttpMethod(j), httpHeaders));
+									result.append(resultStr = runTest(url, params, restTemplateInterceptor, constants.getTestHttpMethod(j), httpHeaders));
 								} else {
-									result.append(runTest(url, params, httpHeaders, constants.getTestHttpMethod(j)));
+									result.append(resultStr = runTest(url, params, httpHeaders, constants.getTestHttpMethod(j)));
 								}
 								result.insert(0, "] : ").insert(0, errorCount).insert(0, "], 실패[").insert(0, totalSuccCount).insert(0, " : 성공[").insert(0, addTotalCount())
 										.insert(result.indexOf("End")+4, timeFormat.format(new Date()));
