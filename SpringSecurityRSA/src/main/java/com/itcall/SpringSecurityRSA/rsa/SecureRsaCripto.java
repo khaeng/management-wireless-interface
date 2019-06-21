@@ -90,8 +90,9 @@ public class SecureRsaCripto {
 		return result;
 	}
 
-	public static void initRsaSession(HttpServletRequest request) throws InvalidKeyException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchPaddingException {
-		HttpSession session = request.getSession(true);
+	public static void initRsaSession(HttpServletRequest request, HttpSession session) throws InvalidKeyException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchPaddingException {
+		if(session==null)
+			session = request.getSession(false);
 		DynamicKeyPairRSA dynamicKeyPairRSA = getOneTimeRSA();
 		session.removeAttribute(RSA_DYNMIC_KEY);
 		session.setAttribute(RSA_DYNMIC_KEY, dynamicKeyPairRSA.getPrivateKey());

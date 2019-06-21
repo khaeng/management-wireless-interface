@@ -77,11 +77,14 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 		http.exceptionHandling().accessDeniedPage("/error/error");
 
 		http.sessionManagement()
-				.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED) // default.
+				// .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED) // default.
+		 		.sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
 				.sessionFixation()
-				.migrateSession()
+				// .migrateSession() // 존재하는 세션을 복사해서 세로운 세션에 담아 새롭게 만든다.
+				.newSession() /// 그냥 새로 만듬.
 				.invalidSessionUrl("/login")
 				.maximumSessions(sessionDuplicatedMaxCount)
+				.maxSessionsPreventsLogin(false) // false : 최대값일 경우 최초 세션을 삭제한다.   true : 최대값에 오면 더이상 세션을 만들지 않는다.
 				.expiredUrl("/login");
 
 		http

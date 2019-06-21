@@ -75,7 +75,7 @@ public class LoginController {
 		if (logout != null) {
 			model.addAttribute("logout", "You have been logged out successfully.");
 		}
-		SecureRsaCripto.initRsaSession(request);
+		//SecureRsaCripto.initRsaSession(request);
 		return "login/login";
 	}
 
@@ -84,7 +84,7 @@ public class LoginController {
 		if (logout != null) {
 			model.addAttribute("logout", "You have been logged out successfully.");
 		}
-		SecureRsaCripto.initRsaSession(request);
+		//SecureRsaCripto.initRsaSession(request);
 		return "login/login_cust";
 	}
 
@@ -97,7 +97,7 @@ public class LoginController {
 			model.addAttribute("username", username);
 		} catch (Exception e) {
 		}
-		SecureRsaCripto.initRsaSession(request);
+		//SecureRsaCripto.initRsaSession(request);
 		return "login/login";
 	}
 
