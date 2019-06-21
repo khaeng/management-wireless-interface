@@ -23,8 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.Executor;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
@@ -43,7 +41,6 @@ import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public abstract class RestTestBase {
@@ -395,7 +392,6 @@ public abstract class RestTestBase {
 			return null;
 		}
 	}
-<<<<<<< HEAD
 	protected static String switchParams(String params, Map<String, Object> map, Map<String, Object> mapFirstCall) {
 		if(StringUtils.isEmpty(params))
 			return "";
@@ -466,62 +462,5 @@ public abstract class RestTestBase {
 		list.add(subMap);
 		map.put("listResult", list);
 		System.out.println(switchParams(test, map, null));
-=======
-	protected static String switchParams(String params, Map<String, Object> map) {
-		if(StringUtils.isEmpty(params))
-			return "";
-		if(StringUtils.isEmpty(objectMapper)) {
-			JsonFactory jsonFactiory = new JsonFactory();
-			objectMapper = new ObjectMapper(jsonFactiory); 
-		}
-		int start = params.indexOf("${");
-		int end = params.indexOf("}", start);
-		if(-1<start && start<end) {
-			String before = params.substring(0, start);
-			String after = params.substring(end+1);
-			String switchKey = params.substring(start+2, end);
-			try {
-				if(StringUtils.isEmpty(switchKey) || StringUtils.isEmpty(map)) {
-					return switchParams(new StringBuffer().append(before).append("\"Not supported values...\"").append(after).toString(), map);
-				} else if(!StringUtils.isEmpty(map.get(switchKey))) {
-					String switchValue = objectMapper.writeValueAsString(map.get(switchKey));
-					return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), map);
-				} else {
-					for (String key : map.keySet()) {
-						if(map.get(key) instanceof Map) {
-							if(!StringUtils.isEmpty(((Map) map.get(key)).get(switchKey))) {
-								String switchValue = objectMapper.writeValueAsString(((Map) map.get(key)).get(switchKey));
-								return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), map);
-							}
-						}
-					}
-					return switchParams(new StringBuffer().append(before).append("").append(after).toString(), map);
-				}
-			}catch (JsonProcessingException e) {
-				return switchParams(new StringBuffer().append(before).append("\"Not convert Object to String cause [").append(e.getMessage()).append("]\"").append(after).toString(), map);
-			}
-		}
-		return params;
-	}
-
-	public static void main(String[] args) throws Exception {
-		System.out.println("asdfasdf\\asdfasdf/asdf/asdf".replaceAll("\\\\", "_").replaceAll("\\/", "_"));
-		String test = "{\"username\":${login.id},\"password\":${login.password}, \"subMap\" : { \"recvCtn\":${testSubMap}, \"content\":\"비즈나루 통합 SMS 단문1\"}, \"testKey\":${thisKey}, \r\n \"list\":${listResult}}";
-		System.out.println(test);
-		Map<String, Object> map = new HashMap<String, Object>();
-		Map<String, Object> subMap = new HashMap<String, Object>();
-		subMap.put("testSubMap", "ThisIsSubMap");
-		map.put("login.password", 212);
-		map.put("thisKey", subMap);
-		
-		List<Map<String, Object>> list = new ArrayList<Map<String,Object>>();
-		list.add(subMap);
-		list.add(subMap);
-		list.add(subMap);
-		list.add(subMap);
-		list.add(subMap);
-		map.put("listResult", list);
-		System.out.println(switchParams(test, map));
->>>>>>> refs/remotes/origin/master
 	}
 }

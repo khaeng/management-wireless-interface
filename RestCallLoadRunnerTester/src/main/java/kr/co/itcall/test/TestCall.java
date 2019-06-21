@@ -149,11 +149,7 @@ public class TestCall extends RestTestBase {
 			String loginProcessUrl = this.constants.getLoginProcessUrl();
 			String loginParams = this.constants.getLoginProcessParams(); // otpChkYn=N&userId=${login.id}&password=${login.password}
 			loginParams = loginParams.replaceFirst("[$]\\{login[.]id\\}", loginId).replaceFirst("[$]\\{login[.]password\\}", loginPassword);
-<<<<<<< HEAD
 			loginParams = switchParams(loginParams, switchResult(resultStr), null); // 일차 수신데이터에서 변경.
-=======
-			loginParams = switchParams(loginParams, switchResult(resultStr)); // 일차 수신데이터에서 변경.
->>>>>>> refs/remotes/origin/master
 	//		RestTemplateInterceptor restTemplateInterceptor = new RestTemplateInterceptor(cookie);
 			HttpHeaders loginHttpHeaders = this.constants.getLoginProcessHeaderInfo(this.httpHeaders);
 			if(restTemplateInterceptor==null) {
@@ -202,11 +198,8 @@ public class TestCall extends RestTestBase {
 			for (int i = 0; i < arrThread.length; i++) {
 				Runnable runnable = new Runnable() { @Override public void run() {
 					long totalTermDoneCount = 0;
-<<<<<<< HEAD
 					String resultStrFirstCall=null;
-=======
->>>>>>> refs/remotes/origin/master
-					String resultStr=null;
+					String resultStr = null;
 					while (totalTestCount>totalTermDoneCount) {
 						if (isExitApp/* || totalProcessCount>=totalTestCount */)
 							break;
@@ -215,11 +208,7 @@ public class TestCall extends RestTestBase {
 							try {Thread.sleep(constants.getSleepTimeBeforeGroup());} catch (InterruptedException e) {}
 						for (long j = 0; j < totalTestCount; j++) {
 							String url = constants.getTestUrlInfo(j);
-<<<<<<< HEAD
 							String params = switchParams(constants.getTestParamsInfo(j), switchResult(resultStr), switchResult(resultStrFirstCall==null?resultStrFirstCall=resultStr:resultStrFirstCall));
-=======
-							String params = switchParams(constants.getTestParamsInfo(j), switchResult(resultStr));
->>>>>>> refs/remotes/origin/master
 							if(!StringUtils.isEmpty(url)) {
 								if(constants.getSleepTimeBeforeTest(j)>0)
 									try {Thread.sleep(constants.getSleepTimeBeforeTest(j));} catch (InterruptedException e) {}
@@ -289,18 +278,11 @@ public class TestCall extends RestTestBase {
 				final long totalTermDoneCount = i;
 				Runnable runnable = new Runnable() { @Override public void run() {
 					try {Thread.sleep(constants.getSleepTimeBeforeGroup());} catch (InterruptedException e) {}
-<<<<<<< HEAD
 					String resultStrFirstCall=null;
-=======
->>>>>>> refs/remotes/origin/master
 					String resultStr=null;
 					for (long j = 0; j < totalTestCount; j++) {
 						String url = constants.getTestUrlInfo(j);
-<<<<<<< HEAD
 						String params = switchParams(constants.getTestParamsInfo(j), switchResult(resultStr), switchResult(resultStrFirstCall==null?resultStrFirstCall=resultStr:resultStrFirstCall));
-=======
-						String params = switchParams(constants.getTestParamsInfo(j), switchResult(resultStr));
->>>>>>> refs/remotes/origin/master
 						if(!StringUtils.isEmpty(url)) {
 							try {Thread.sleep(constants.getSleepTimeBeforeTest(j));} catch (InterruptedException e) {}
 							try {

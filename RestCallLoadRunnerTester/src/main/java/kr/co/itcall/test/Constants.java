@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
 import java.util.Properties;
 
 import org.springframework.beans.factory.config.PropertiesFactoryBean;
@@ -183,11 +182,7 @@ public class Constants {
 		return this.properties.getProperty("login.page.url");
 	}
 	public String getLoginPageParams() {
-<<<<<<< HEAD
 		return switchParams(this.properties.getProperty("login.page.params"));
-=======
-		return this.properties.getProperty("login.page.params");
->>>>>>> refs/remotes/origin/master
 	}
 	public String getRsaModuleId() {
 		return this.properties.getProperty("login.rsa.module.id"); // , "RSAModulus");
@@ -220,11 +215,7 @@ public class Constants {
 		return this.properties.getProperty("login.process.url");
 	}
 	public String getLoginProcessParams() {
-<<<<<<< HEAD
 		return switchParams(this.properties.getProperty("login.process.params"));
-=======
-		return this.properties.getProperty("login.process.params");
->>>>>>> refs/remotes/origin/master
 	}
 	/** 멀티 호출개수만큼 테스트 Runnalbe을 만들고. 테스트한다. 각 테스트는 앞 테스트가 종료(완료)된 후 실행된다. 한 루프가 돌면 다시 처음부터 호출된다. **/
 	public boolean isLoopRelayTest() {
