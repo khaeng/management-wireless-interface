@@ -211,6 +211,27 @@ public class Constants {
 	public String getRsaPublicEnd() {
 		return this.properties.getProperty("login.rsa.Public.end");
 	}
+	public String getRsaUrl() {
+		return this.properties.getProperty("login.rsa.url");
+	}
+	public String getRsaParams() {
+		return this.properties.getProperty("login.rsa.params");
+	}
+	public HttpHeaders getRsaHeaderInfo(HttpHeaders httpHeaders) {
+		return getHeaderInfoFromProperties("login.rsa.header.", httpHeaders);
+	}
+	public HttpMethod getRsaHttpMethod() {
+		return HttpMethod.valueOf(this.properties.getProperty("login.rsa.method", "POST"));
+	}
+	public String getRsaModuleKey() {
+		return this.properties.getProperty("login.rsa.module.key");
+	}
+	public String getRsaExponentKey() {
+		return this.properties.getProperty("login.rsa.exponent.key");
+	}
+	public String getRsaPublicKey() {
+		return this.properties.getProperty("login.rsa.public.key");
+	}
 	public String getLoginProcessUrl() {
 		return this.properties.getProperty("login.process.url");
 	}
@@ -259,7 +280,7 @@ public class Constants {
 				outputHeaders.put(header, httpHeaders.get(header));
 			}
 		}
-		for (int i = 0; i < 100; i++) {
+		for (int i = 0; i < RestTestBase.MAX_LOOP_AND_HEADER_COUNT; i++) {
 			String key = this.properties.getProperty(baseKey+i+".key");
 			if(StringUtils.isEmpty(key))
 				break;
@@ -302,4 +323,6 @@ public class Constants {
 			return params;
 		}
 	}
+
+
 }

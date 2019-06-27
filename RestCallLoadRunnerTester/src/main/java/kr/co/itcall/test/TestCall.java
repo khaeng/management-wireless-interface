@@ -8,6 +8,7 @@ import java.security.spec.RSAPublicKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Map;
 
 import javax.crypto.Cipher;
 
@@ -80,65 +81,100 @@ public class TestCall extends RestTestBase {
 			System.out.println(resultStr);
 	//		<input type="hidden" id="RSAModulus"  value='<c:out value="${_RSAModules}"/>' />
 	//		<input type="hidden" id="RSAExponent" value='<c:out value="${_RSAExponent}"/>' />
-			String rsaModuleId = this.constants.getRsaModuleId();
-			String rsaExponentId = this.constants.getRsaExponentId();
-			String rsaPublicId = this.constants.getRsaPublicId();
-
-
-
+			String rsaModuleId = null;
+			String rsaExponentId = null;
+			String rsaPublicId = null;
 			String rsaModuleKey = null;
-			if(!StringUtils.isEmpty(rsaModuleId)) {
-				try {
-					rsaModuleKey = getValFromKey(rsaModuleId, resultStr);
-					if(StringUtils.isEmpty(rsaModuleKey)) throw new Exception();
-				} catch (Exception e) {
-					rsaModuleKey = getValFromBody(resultStr, this.constants.getRsaModuleStart(), this.constants.getRsaModuleEnd());
-				}
-				System.out.println("추출한 RSA_MODULE_KEY = " + rsaModuleKey);
-			}
-			
 			String rsaExponentKey = null;
-			if(!StringUtils.isEmpty(rsaExponentId)) {
-				try {
-					rsaExponentKey = getValFromKey(rsaExponentId, resultStr);
-					if(StringUtils.isEmpty(rsaExponentKey)) throw new Exception();
-				} catch (Exception e) {
-					rsaExponentKey = getValFromBody(resultStr, this.constants.getRsaExponentStart(), this.constants.getRsaExponentEnd());
-				}
-				System.out.println("추출한 RSA_EXPONENT_KEY = " + rsaExponentKey);
-			}
-			
 			String publicKeyStr = null;
-			if(!StringUtils.isEmpty(rsaPublicId)) {
-				try {
-					publicKeyStr = getValFromKey(rsaPublicId, resultStr);
-					if(StringUtils.isEmpty(publicKeyStr)) throw new Exception();
-				} catch (Exception e) {
-					publicKeyStr = getValFromBody(resultStr, this.constants.getRsaPublicStart(), this.constants.getRsaPublicEnd());
+			String rsaUrl= this.constants.getRsaUrl();
+
+
+
+			if(!StringUtils.isEmpty(rsaUrl)) {
+				rsaModuleId = this.constants.getRsaModuleKey();
+				rsaExponentId = this.constants.getRsaExponentKey();
+				rsaPublicId = this.constants.getRsaPublicKey();
+				String rsaParams = this.constants.getRsaParams();
+				rsaParams = switchParams(rsaParams, switchResult(resultStr), null); // 일차 수신데이터에서 변경.
+				HttpHeaders rsaHttpHeaders = this.constants.getRsaHeaderInfo(this.httpHeaders);
+				HttpMethod rsaHttpMethod = this.constants.getRsaHttpMethod();
+				if(restTemplateInterceptor==null) {
+					restTemplateInterceptor = new RestTemplateInterceptor(rsaHttpHeaders, this.constants.isLogging());
+				} else {
+					restTemplateInterceptor.setHttpHeaders(rsaHttpHeaders);
 				}
-				System.out.println("추출한 RSA_PUBLIC_KEY = " + publicKeyStr);
-			}
-			
-			/*********** 로그인을 위한 RSA 암호화 처리 ************/
-			KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-			PublicKey publicKey = null;
-			if(!StringUtils.isEmpty(publicKeyStr)) {
-				publicKey = keyFactory.generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(publicKeyStr.getBytes())));
+				resultStr = loginTest(rsaUrl, rsaParams, restTemplateInterceptor, rsaHttpMethod, rsaHttpHeaders);
+				System.out.println(resultStr);
+				Map<String,Object> rsaResult = switchResult(resultStr);
+				if(!StringUtils.isEmpty(rsaResult)) {
+					publicKeyStr = !StringUtils.isEmpty(rsaResult.get(rsaPublicId))   ? (String)rsaResult.get(rsaPublicId)   : null ;
+					System.out.println("추출한 RSA_PUBLIC_KEY = " + publicKeyStr);
+					rsaModuleKey = !StringUtils.isEmpty(rsaResult.get(rsaModuleId))   ? (String)rsaResult.get(rsaModuleId)   : null ;
+					System.out.println("추출한 RSA_MODULE_KEY = " + rsaModuleKey);
+					rsaExponentKey = !StringUtils.isEmpty(rsaResult.get(rsaExponentId)) ? (String)rsaResult.get(rsaExponentId) : null ;
+					System.out.println("추출한 RSA_EXPONENT_KEY = " + rsaExponentKey);
+					this.httpHeaders = restTemplateInterceptor.getHttpHeaders();
+				}
 			} else {
-				publicKey = keyFactory.generatePublic(new RSAPublicKeySpec(new BigInteger(rsaModuleKey, 16), new BigInteger(rsaExponentKey, 16)));
+				rsaModuleId = this.constants.getRsaModuleId();
+				rsaExponentId = this.constants.getRsaExponentId();
+				rsaPublicId = this.constants.getRsaPublicId();
+				if(!StringUtils.isEmpty(rsaModuleId)) {
+					try {
+						rsaModuleKey = getValFromKey(rsaModuleId, resultStr);
+						if(StringUtils.isEmpty(rsaModuleKey)) throw new Exception();
+					} catch (Exception e) {
+						rsaModuleKey = getValFromBody(resultStr, this.constants.getRsaModuleStart(), this.constants.getRsaModuleEnd());
+					}
+					System.out.println("추출한 RSA_MODULE_KEY = " + rsaModuleKey);
+				}
+				
+				if(!StringUtils.isEmpty(rsaExponentId)) {
+					try {
+						rsaExponentKey = getValFromKey(rsaExponentId, resultStr);
+						if(StringUtils.isEmpty(rsaExponentKey)) throw new Exception();
+					} catch (Exception e) {
+						rsaExponentKey = getValFromBody(resultStr, this.constants.getRsaExponentStart(), this.constants.getRsaExponentEnd());
+					}
+					System.out.println("추출한 RSA_EXPONENT_KEY = " + rsaExponentKey);
+				}
+				
+				if(!StringUtils.isEmpty(rsaPublicId)) {
+					try {
+						publicKeyStr = getValFromKey(rsaPublicId, resultStr);
+						if(StringUtils.isEmpty(publicKeyStr)) throw new Exception();
+					} catch (Exception e) {
+						publicKeyStr = getValFromBody(resultStr, this.constants.getRsaPublicStart(), this.constants.getRsaPublicEnd());
+					}
+					System.out.println("추출한 RSA_PUBLIC_KEY = " + publicKeyStr);
+				}
 			}
-			Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-			cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-			// 공개키 이용 암호화
-			byte[] bCipher = cipher.doFinal(loginPassword.getBytes(charset));
-//			loginPassword = Base64.getEncoder().encodeToString(bCipher);
-//			loginPassword = new BigInteger(bCipher).toString(16);
-			loginPassword = byteArrayToHex(bCipher);
-			if(this.constants.isRsaLoginId()) {
-				bCipher = cipher.doFinal(loginId.getBytes(charset));
-//				loginId = Base64.getEncoder().encodeToString(bCipher);
-//				loginId = new BigInteger(bCipher).toString(16);
-				loginId = byteArrayToHex(bCipher);;
+
+
+
+			/*********** 로그인을 위한 RSA 암호화 처리 ************/
+			if(!StringUtils.isEmpty(publicKeyStr) || (!StringUtils.isEmpty(rsaModuleKey) && !StringUtils.isEmpty(rsaExponentKey))) {
+				KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+				PublicKey publicKey = null;
+				if(!StringUtils.isEmpty(publicKeyStr)) {
+					publicKey = keyFactory.generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(publicKeyStr.getBytes())));
+				} else {
+					publicKey = keyFactory.generatePublic(new RSAPublicKeySpec(new BigInteger(rsaModuleKey, 16), new BigInteger(rsaExponentKey, 16)));
+				}
+				Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+				cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+				// 공개키 이용 암호화
+				byte[] bCipher = cipher.doFinal(loginPassword.getBytes(charset));
+	//			loginPassword = Base64.getEncoder().encodeToString(bCipher);
+	//			loginPassword = new BigInteger(bCipher).toString(16);
+				loginPassword = byteArrayToHex(bCipher);
+				if(this.constants.isRsaLoginId()) {
+					bCipher = cipher.doFinal(loginId.getBytes(charset));
+	//				loginId = Base64.getEncoder().encodeToString(bCipher);
+	//				loginId = new BigInteger(bCipher).toString(16);
+					loginId = byteArrayToHex(bCipher);;
+				}
 			}
 		}
 
@@ -166,7 +202,7 @@ public class TestCall extends RestTestBase {
 
 
 
-		for (long j = 0; j < totalTestCount; j++) {
+		for (long j = 0; j < MAX_LOOP_AND_HEADER_COUNT; j++) {
 			String url = constants.getTestUrlInfo(j);
 			if(StringUtils.isEmpty(url)) {
 				loopTestCount=(int)j;
@@ -206,7 +242,7 @@ public class TestCall extends RestTestBase {
 						++totalTermDoneCount;
 						if(constants.getSleepTimeBeforeGroup()>0)
 							try {Thread.sleep(constants.getSleepTimeBeforeGroup());} catch (InterruptedException e) {}
-						for (long j = 0; j < totalTestCount; j++) {
+						for (long j = 0; j < MAX_LOOP_AND_HEADER_COUNT; j++) {
 							String url = constants.getTestUrlInfo(j);
 							String params = switchParams(constants.getTestParamsInfo(j), switchResult(resultStr), switchResult(resultStrFirstCall==null?resultStrFirstCall=resultStr:resultStrFirstCall));
 							if(!StringUtils.isEmpty(url)) {
@@ -231,7 +267,7 @@ public class TestCall extends RestTestBase {
 									result.insert(0, "] : ").insert(0, errorCount).insert(0, "], 실패[").insert(0, totalSuccCount).insert(0, " : 성공[").insert(0, addTotalCount())
 											.insert(result.indexOf("End")+4, timeFormat.format(new Date()));
 									addLog(result.toString() + "\n");
-									if(totalTermDoneCount%printLogTerm==0) {
+									if(constants.isLogging() || totalTermDoneCount%printLogTerm==0) {
 										System.out.println(result.toString());
 									}
 								} catch (IOException e) {
@@ -280,7 +316,7 @@ public class TestCall extends RestTestBase {
 					try {Thread.sleep(constants.getSleepTimeBeforeGroup());} catch (InterruptedException e) {}
 					String resultStrFirstCall=null;
 					String resultStr=null;
-					for (long j = 0; j < totalTestCount; j++) {
+					for (long j = 0; j < MAX_LOOP_AND_HEADER_COUNT; j++) {
 						String url = constants.getTestUrlInfo(j);
 						String params = switchParams(constants.getTestParamsInfo(j), switchResult(resultStr), switchResult(resultStrFirstCall==null?resultStrFirstCall=resultStr:resultStrFirstCall));
 						if(!StringUtils.isEmpty(url)) {
@@ -304,7 +340,7 @@ public class TestCall extends RestTestBase {
 								result.insert(0, "] : ").insert(0, errorCount).insert(0, "], 실패[").insert(0, totalSuccCount).insert(0, " : 성공[").insert(0, addTotalCount())
 										.insert(result.indexOf("End")+4, timeFormat.format(new Date()));
 								addLog(result.toString() + "\n");
-								if(totalTermDoneCount%printLogTerm==0) {
+								if(constants.isLogging() || totalTermDoneCount%printLogTerm==0) {
 									System.out.println(result.toString());
 								}
 							} catch (IOException e) {
@@ -372,14 +408,21 @@ public class TestCall extends RestTestBase {
 			}
 		}
 
-		HttpEntity<Object> entity = new HttpEntity<Object>(params, headers);
+		HttpEntity<Object> entity = null;
+		try{
+			entity = new HttpEntity<Object>(switchResult(params), headers);
+		}catch (Exception e) {
+			entity = new HttpEntity<Object>(params, headers);
+		}
+		
 		String response = null;
 		try {
 			switch (httpMethod) {
 			case POST:
-				response = restTemplate(this.constants.isLogging()).postForObject(url, entity, String.class);
+				response = restTemplate(this.constants.isLogging()).postForObject(url, entity, String.class, params);
 				break;
 			default:
+				// ResponseEntity<String> result = restTemplate(this.constants.isLogging()).exchange(url, httpMethod, entity, String.class);
 				ResponseEntity<String> result = restTemplate(this.constants.isLogging()).exchange(url, httpMethod, entity, String.class);
 				response = result.getBody();
 				break;

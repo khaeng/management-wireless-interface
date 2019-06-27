@@ -15,7 +15,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 
 import com.itcall.SpringSecurityRSA.config.handler.RsaAuthenticationFailureHandler;
 import com.itcall.SpringSecurityRSA.config.handler.RsaAuthenticationSuccessHandler;
@@ -40,7 +39,7 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 	@Override
 	public void configure(WebSecurity web) throws Exception
 	{
-		web.ignoring().antMatchers("/favicon.ico", "/css/**", "/js/**", "/image/**", "/error/**", "/loginProcess", "/loginRedirect", "/loginCust");
+		web.ignoring().antMatchers("/favicon.ico", "/css/**", "/js/**", "/image/**", "/error/**", "/loginProcess", "/loginRedirect", "/loginCust", "/getRsaPublicInfo");
 	}
 
 	@Override
@@ -48,7 +47,7 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 		int sessionDuplicatedMaxCount = sessionDuplicatedMaxCountByCmd>0 ? sessionDuplicatedMaxCountByCmd : this.sessionDuplicatedMaxCount;
 
 		http.authorizeRequests()
-				.antMatchers("/css/**", "/js/**", "/image/**", "/loginProcess", "/loginRedirect", "/loginCust").permitAll()
+				.antMatchers("/css/**", "/js/**", "/image/**", "/loginProcess", "/loginRedirect", "/loginCust", "/getRsaPublicInfo").permitAll()
 				.antMatchers("/login", "/loginCust").permitAll()
 				.antMatchers("/api/root/**").hasRole("ROOT")
 				.antMatchers("/api/admin/**").hasAnyRole("ROOT", "ADMIN")

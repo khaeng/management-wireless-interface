@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
 import java.security.KeyManagementException;
@@ -49,7 +51,7 @@ public abstract class RestTestBase {
 
 	public static final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyyMMdd.HHmmss.SSS");
 	public static final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
-
+	public static final int MAX_LOOP_AND_HEADER_COUNT = 100;
 
 	protected Executor executor;
 	protected Constants constants;
@@ -124,7 +126,7 @@ public abstract class RestTestBase {
 		RestTemplate restTemplate = new RestTemplate(bufferingClientHttpRequestFactory);
 		if(isLogging) {
 			List<ClientHttpRequestInterceptor> interceptors = new ArrayList<ClientHttpRequestInterceptor>();
-			interceptors.add(new RestTemplateInterceptor());
+			interceptors.add(new RestTemplateInterceptor(null, isLogging));
 			restTemplate.setInterceptors(interceptors);
 		}
 		return arrRestTemplateForRestClient[indexRestTemplate] = restTemplate;
@@ -445,6 +447,11 @@ public abstract class RestTestBase {
 	}
 
 	public static void main(String[] args) throws Exception {
+		String testStr = "userId=\"><scr<script>ipt>alert(1);var test='91094035ABC한글j';</scr<script>ipt><";
+		String encStr = URLEncoder.encode(testStr, Charset.forName("UTF-8"));
+		System.out.println(encStr);
+		System.out.println(URLDecoder.decode(encStr, Charset.forName("UTF-8")));
+		if(true)return ;
 		System.out.println("asdfasdf\\asdfasdf/asdf/asdf".replaceAll("\\\\", "_").replaceAll("\\/", "_"));
 		String test = "{\"username\":${login.id},\"password\":${login.password}, \"subMap\" : { \"recvCtn\":${testSubMap}, \"content\":\"비즈나루 통합 SMS 단문1\"}, \"testKey\":${thisKey}, \r\n \"list\":${listResult}}";
 		System.out.println(test);

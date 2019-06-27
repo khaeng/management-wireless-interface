@@ -25,13 +25,15 @@ import javax.servlet.http.HttpSession;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class SecureRsaCripto {
 	private static final Logger log = LoggerFactory.getLogger(SecureRsaCripto.class);
 	public static final String RSA_DYNMIC_KEY = "_RSA_Dynamic_Key_";
+	public static final String RSA_PUB_MODULE = "_RSAModules";
+	public static final String RSA_PUB_EXPONENT = "_RSAExponent";
+	public static final String RSA_PUB_KEY = "_RSAPublicKey";
 
 
 	public String getRSAEncode(String data, String publicKeyStr) throws InvalidKeyException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchPaddingException {
@@ -96,8 +98,11 @@ public class SecureRsaCripto {
 		DynamicKeyPairRSA dynamicKeyPairRSA = getOneTimeRSA();
 		session.removeAttribute(RSA_DYNMIC_KEY);
 		session.setAttribute(RSA_DYNMIC_KEY, dynamicKeyPairRSA.getPrivateKey());
-		request.setAttribute("_RSAModules", dynamicKeyPairRSA.getPublicKeyModules());
-		request.setAttribute("_RSAExponent", dynamicKeyPairRSA.getPublicKeyExponent());
+		session.setAttribute(RSA_PUB_MODULE, dynamicKeyPairRSA.getPublicKeyModules());
+		session.setAttribute(RSA_PUB_EXPONENT, dynamicKeyPairRSA.getPublicKeyExponent());
+		session.setAttribute(RSA_PUB_KEY, dynamicKeyPairRSA.getPublicKey());
+		request.setAttribute(RSA_PUB_MODULE, dynamicKeyPairRSA.getPublicKeyModules());
+		request.setAttribute(RSA_PUB_EXPONENT, dynamicKeyPairRSA.getPublicKeyExponent());
 	}
 
 	public static String getRSaDecodeFromSession(HttpServletRequest request, String encStr) throws Exception {

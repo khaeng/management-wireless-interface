@@ -7,6 +7,7 @@ import javax.servlet.http.HttpSessionListener;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -34,7 +35,7 @@ public class RsaSessionListener implements HttpSessionListener {
 		try {
 			HttpServletRequest request = ((ServletRequestAttributes)RequestContextHolder.currentRequestAttributes()).getRequest();
 			log.debug("=== Request URI[{}]", request.getRequestURI());
-			if (request.getRequestURI().endsWith("login") || request.getRequestURI().endsWith("loginCust") || request.getRequestURI().endsWith("loginError") /* || request.getRequestURI().endsWith("") */) {
+			if ( StringUtils.isEmpty(event.getSession().getAttribute(SecureRsaCripto.RSA_PUB_MODULE)) && (request.getRequestURI().endsWith("login") || request.getRequestURI().endsWith("loginCust") || request.getRequestURI().endsWith("loginError") /* || request.getRequestURI().endsWith("") */)) {
 				SecureRsaCripto.initRsaSession(request, event.getSession());
 			}
 		} catch (Exception e) {
