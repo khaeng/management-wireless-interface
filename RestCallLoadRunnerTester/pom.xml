@@ -7,9 +7,36 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<name>test</name>
 
+	<repositories>
+		<repository>
+			<id>self</id>
+			<name>Inside Repository</name>
+			<url>file://${project.basedir}/libs/</url>
+		</repository>
+	</repositories>
+	
+	<pluginRepositories>
+		<pluginRepository>
+			<id>self</id>
+			<name>Inside Repository</name>
+			<url>file://${project.basedir}/libs/</url>
+		</pluginRepository>
+	</pluginRepositories>
+
+
 	<properties>
-		<spring.version>4.3.8.RELEASE</spring.version>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+		<java.version>1.8</java.version>
+		<maven.plugin.version>3.8.1</maven.plugin.version>
+		<spring.version>5.1.8.RELEASE</spring.version>
+		<spring.security.version>5.1.5.RELEASE</spring.security.version>
+<!-- 		<spring.version>4.2.5.RELEASE</spring.version> -->
+<!-- 		<spring.version>4.3.8.RELEASE</spring.version> -->
 		<httpcomponents.version>4.5.9</httpcomponents.version> <!-- 4.5.3 -->
+		<jackson.fasterxml.version>2.9.9</jackson.fasterxml.version>
+		<jackson.codehaus.version>1.9.13</jackson.codehaus.version>
+		<mail.version>1.4.7</mail.version>
 	</properties>
 
 	<dependencies>
@@ -27,6 +54,12 @@
 		</dependency>
 
 		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-core</artifactId>
+			<version>${spring.security.version}</version>
+		</dependency>
+
+		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-context</artifactId>
 			<version>${spring.version}</version>
@@ -37,23 +70,82 @@
 			<version>${spring.version}</version>
 		</dependency>
 
+		<!-- JSON UTIL 양대산맥 난 fasterxml을 사용하지만 RestTemplate의 MessageConverter의 작동때문에 둘다 Import함. -->
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-databind</artifactId>
-			<version>2.9.9</version>
+			<version>${jackson.fasterxml.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.codehaus.jackson</groupId>
+			<artifactId>jackson-mapper-asl</artifactId>
+			<version>${jackson.codehaus.version}</version>
 		</dependency>
 
+		<dependency>
+			<groupId>javax.mail</groupId>
+			<artifactId>mail</artifactId>
+			<version>${mail.version}</version>
+		</dependency>
 
+		<!-- 데이터베이스 -->
+		<dependency>
+			<groupId>Altibase.jdbc</groupId>
+			<artifactId>altibase-Driver</artifactId>
+			<version>6.3.1</version>
+			<!-- <version>6.5.1</version> -->
+			<!-- <version>7.1.0</version> -->
+			<!-- <scope>test</scope> -->
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<version>9.4.1212</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.mariadb.jdbc</groupId>
+			<artifactId>mariadb-java-client</artifactId>
+			<version>2.4.0</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+			<version>8.0.16</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.github.jinahya</groupId>
+			<artifactId>cubrid-jdbc-driver-9.3.0.0206</artifactId>
+			<version>1.0</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.oracle</groupId>
+			<artifactId>ojdbc14</artifactId>
+			<version>10.2.0.4.0</version>
+			<type>pom</type>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.sqlapp</groupId>
+			<artifactId>sqlapp-core-sybase</artifactId>
+			<version>0.8.13</version>
+			<scope>provided</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
 		<plugins>
 			<plugin>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.1</version>
+				<version>${maven.plugin.version}</version>
 				<configuration>
-					<source>1.8</source>
-					<target>1.8</target>
+					<source>${java.version}</source>
+					<target>${java.version}</target>
+					<encoding>${project.build.sourceEncoding}</encoding>
 				</configuration>
 			</plugin>
 		</plugins>

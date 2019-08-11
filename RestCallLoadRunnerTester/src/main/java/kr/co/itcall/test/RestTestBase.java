@@ -1,9 +1,12 @@
 package kr.co.itcall.test;
 
+import java.awt.LayoutManager;
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
@@ -26,6 +29,12 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.Executor;
 
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JTextArea;
+
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -37,7 +46,16 @@ import org.springframework.http.client.ClientHttpRequest;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.http.converter.ByteArrayHttpMessageConverter;
+import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.ResourceHttpMessageConverter;
+import org.springframework.http.converter.StringHttpMessageConverter;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.http.converter.support.AllEncompassingFormHttpMessageConverter;
+import org.springframework.http.converter.xml.Jaxb2RootElementHttpMessageConverter;
+import org.springframework.http.converter.xml.SourceHttpMessageConverter;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
@@ -80,6 +98,9 @@ public abstract class RestTestBase {
 	public RestTestBase(Constants constants) {
 		this.constants = constants;
 		this.charset = this.constants.getTestCharset(); // 테스트 시작과 종료시 모두 사용하므로...
+		JsonFactory jsonFactiory = new JsonFactory();
+		objectMapper = new ObjectMapper(jsonFactiory);
+		this.constants.setObjectMapper(objectMapper);
 	}
 
 	protected void initialize() throws IOException {
@@ -129,7 +150,7 @@ public abstract class RestTestBase {
 			interceptors.add(new RestTemplateInterceptor(null, isLogging));
 			restTemplate.setInterceptors(interceptors);
 		}
-		return arrRestTemplateForRestClient[indexRestTemplate] = restTemplate;
+		return arrRestTemplateForRestClient[indexRestTemplate] = withMessageConverters(restTemplate);
 	}
 	public RestTemplate restTemplateForLogin(RestTemplateInterceptor restTemplateInterceptor) {
 		if(this.restTemplateForRestClientForLogin!=null) return this.restTemplateForRestClientForLogin;
@@ -150,7 +171,7 @@ public abstract class RestTestBase {
 			interceptors.add(restTemplateInterceptor);
 			restTemplate.setInterceptors(interceptors);
 		}
-		return this.restTemplateForRestClientForLogin = restTemplate;
+		return this.restTemplateForRestClientForLogin = withMessageConverters(restTemplate);
 	}
 
 	private CloseableHttpClient getHttpClientWithSSL(RestTemplateInterceptor restTemplateInterceptor) {
@@ -176,6 +197,59 @@ public abstract class RestTestBase {
 			e.printStackTrace();
 		}
 		return httpClient;
+	}
+	private RestTemplate withMessageConverters(RestTemplate restTemplate) {
+		if(!StringUtils.isEmpty(restTemplate)) {
+			for (HttpMessageConverter<?> httpMessageConverter : restTemplate.getMessageConverters()) {
+				if(!(httpMessageConverter instanceof AllEncompassingFormHttpMessageConverter))
+					continue;
+				
+				List<HttpMessageConverter<?>> partConverterList = new ArrayList<HttpMessageConverter<?>>();
+				partConverterList.add(new ByteArrayHttpMessageConverter());
+				StringHttpMessageConverter stringHttpMessageConverter = new StringHttpMessageConverter(charset);
+				stringHttpMessageConverter.setWriteAcceptCharset(false);
+				partConverterList.add(stringHttpMessageConverter);
+				partConverterList.add(new ResourceHttpMessageConverter());
+				partConverterList.add(new SourceHttpMessageConverter<>());
+				if(ClassUtils.isPresent("javax.xml.bind.Binder", AllEncompassingFormHttpMessageConverter.class.getClassLoader())) {
+					partConverterList.add(new Jaxb2RootElementHttpMessageConverter());
+				}
+				if(ClassUtils.isPresent("com.fasterxml.jackson.databind.ObjectMapper", AllEncompassingFormHttpMessageConverter.class.getClassLoader())) {
+					partConverterList.add(new MappingJackson2HttpMessageConverter());
+				} else if(ClassUtils.isPresent("org.codehaus.jackson.map.ObjectMapper",  AllEncompassingFormHttpMessageConverter.class.getClassLoader())
+						&& ClassUtils.isPresent("org.codehaus.jackson.JsonGenerator",  AllEncompassingFormHttpMessageConverter.class.getClassLoader())) {
+					// partConverterList.add(new MappingJacksonHttpMessageConverter());
+					partConverterList.add(new MappingJackson2HttpMessageConverter());
+				}
+				
+				((AllEncompassingFormHttpMessageConverter) httpMessageConverter).setPartConverters(partConverterList);
+				((AllEncompassingFormHttpMessageConverter) httpMessageConverter).setCharset(charset);
+				((AllEncompassingFormHttpMessageConverter) httpMessageConverter).setMultipartCharset(charset);
+				
+			}
+			
+//			List<HttpMessageConverter<?>> partConverterList = new ArrayList<HttpMessageConverter<?>>();
+//			partConverterList.add(new ByteArrayHttpMessageConverter());
+//			StringHttpMessageConverter stringHttpMessageConverter = new StringHttpMessageConverter(charset);
+//			stringHttpMessageConverter.setWriteAcceptCharset(false);
+//			partConverterList.add(stringHttpMessageConverter);
+//			partConverterList.add(new ResourceHttpMessageConverter());
+//			partConverterList.add(new SourceHttpMessageConverter<>());
+//			if(ClassUtils.isPresent("javax.xml.bind.Binder", AllEncompassingFormHttpMessageConverter.class.getClassLoader())) {
+//				partConverterList.add(new Jaxb2RootElementHttpMessageConverter());
+//			}
+//			if(ClassUtils.isPresent("com.fasterxml.jackson.databind.ObjectMapper", AllEncompassingFormHttpMessageConverter.class.getClassLoader())) {
+//				partConverterList.add(new MappingJackson2HttpMessageConverter());
+//			} else if(ClassUtils.isPresent("org.codehaus.jackson.map.ObjectMapper",  AllEncompassingFormHttpMessageConverter.class.getClassLoader())
+//					&& ClassUtils.isPresent("org.codehaus.jackson.JsonGenerator",  AllEncompassingFormHttpMessageConverter.class.getClassLoader())) {
+//				// partConverterList.add(new MappingJacksonHttpMessageConverter());
+//				partConverterList.add(new MappingJackson2HttpMessageConverter());
+//			}
+//			restTemplate.setMessageConverters(partConverterList);
+		} else {
+			// RestTemplate
+		}
+		return restTemplate;
 	}
 
 	protected void addLog(String log) throws IOException {
@@ -317,9 +391,9 @@ public abstract class RestTestBase {
 			System.out.println("\n\n======================================================================================\n테스트가 마무리 되었습니다. 결과를 정리중이니 잡시만 기다려 주십시오.");
 		
 		try {
-			for (int i = 0; i < 30; i++) {
+			for (int i = 0; i < 70; i++) {
 				System.out.print(i%2==0?"■":"□");
-				Thread.sleep(500);
+				Thread.sleep(50);
 			}
 			System.out.println();
 			} catch (InterruptedException e) {}
@@ -384,73 +458,162 @@ public abstract class RestTestBase {
 	}
 
 	protected static Map<String, Object> switchResult(String resultStr) {
-		if(StringUtils.isEmpty(objectMapper)) {
-			JsonFactory jsonFactiory = new JsonFactory();
-			objectMapper = new ObjectMapper(jsonFactiory); 
-		}
 		try {
 			return objectMapper.readValue(resultStr, Map.class);
 		} catch (IOException | NullPointerException e) {
 			return null;
 		}
 	}
-	protected static String switchParams(String params, Map<String, Object> map, Map<String, Object> mapFirstCall) {
+	protected static String switchParams(String params, List<Map<String, Object>> preSqlResult, Map<String, Object> map, Map<String, Object> mapFirstCall, Constants constants, Map<String, Object> beforeResultMap) {
 		if(StringUtils.isEmpty(params))
 			return "";
-		if(StringUtils.isEmpty(objectMapper)) {
-			JsonFactory jsonFactiory = new JsonFactory();
-			objectMapper = new ObjectMapper(jsonFactiory); 
-		}
 		int start = params.indexOf("${");
+		if(start>0 && params.charAt(start-1)=='\\')
+			start = -1;
 		int end = params.indexOf("}", start);
 		if(-1<start && start<end) {
 			String before = params.substring(0, start);
 			String after = params.substring(end+1);
 			String switchKey = params.substring(start+2, end);
 			try {
-				if(StringUtils.isEmpty(switchKey) || StringUtils.isEmpty(map) && StringUtils.isEmpty(mapFirstCall)) {
-					return switchParams(new StringBuffer().append(before).append("\"Not supported values...\"").append(after).toString(), map, mapFirstCall);
-				} else if(!StringUtils.isEmpty(map) && !StringUtils.isEmpty(map.get(switchKey))) {
-					String switchValue = objectMapper.writeValueAsString(map.get(switchKey));
-					return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), map, mapFirstCall);
+				if(StringUtils.isEmpty(switchKey)/* || StringUtils.isEmpty(map) && StringUtils.isEmpty(mapFirstCall)*/) {
+					String switchValue = inputUserPopup("지정된 키값이 잘못되었습니다. 수정하고 다시시도하거나, 직접 입력해주세요", "${"+switchKey+"} 에 대응하는 값을 입력해주세요.", "");
+					if(!StringUtils.isEmpty(switchValue)) {
+						if(StringUtils.isEmpty(map)) map = new HashMap<String, Object>();
+						map.put(switchKey, switchValue);
+					}
+					return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+					// return switchParams(new StringBuffer().append(before).append("\"Not supported values...\"").append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
 				} else {
-					if(!StringUtils.isEmpty(map)) {
+					if(!StringUtils.isEmpty(preSqlResult) && preSqlResult.size()>0) {
+						String switchValue = constants.findFromList(switchKey, preSqlResult);
+						if(switchValue!=null)
+							return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+					}
+					if(!StringUtils.isEmpty(map) && !StringUtils.isEmpty(map.get(switchKey))) {
+						// String switchValue = objectMapper.writeValueAsString(map.get(switchKey));
+						String switchValue = map.get(switchKey) + "";
+						return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+					} else if(!StringUtils.isEmpty(map)) {
 						for (String key : map.keySet()) {
 							if(map.get(key) instanceof Map) {
-								if(!StringUtils.isEmpty(((Map) map.get(key)).get(switchKey))) {
-									String switchValue = objectMapper.writeValueAsString(((Map) map.get(key)).get(switchKey));
-									return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), map, mapFirstCall);
+								if(!StringUtils.isEmpty(((Map) map.get(key)).get(switchKey) + "") && !(((Map) map.get(key)).get(switchKey) + "").equals("0") && !(((Map) map.get(key)).get(switchKey) + "").equals("null")) {
+									// String switchValue = objectMapper.writeValueAsString(((Map) map.get(key)).get(switchKey));
+									String switchValue = ((Map) map.get(key)).get(switchKey) + "";
+									return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
 								}
 							}
 						}
 					}
 					if(!StringUtils.isEmpty(mapFirstCall) && !StringUtils.isEmpty(mapFirstCall.get(switchKey))) {
-						String switchValue = objectMapper.writeValueAsString(mapFirstCall.get(switchKey));
-						return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), map, mapFirstCall);
+						// String switchValue = objectMapper.writeValueAsString(mapFirstCall.get(switchKey));
+						String switchValue = mapFirstCall.get(switchKey) + "";
+						return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
 					} else if(!StringUtils.isEmpty(mapFirstCall)) {
 						for (String key : mapFirstCall.keySet()) {
 							if(mapFirstCall.get(key) instanceof Map) {
 								if(!StringUtils.isEmpty(((Map) mapFirstCall.get(key)).get(switchKey))) {
-									String switchValue = objectMapper.writeValueAsString(((Map) mapFirstCall.get(key)).get(switchKey));
-									return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), map, mapFirstCall);
+									// String switchValue = objectMapper.writeValueAsString(((Map) mapFirstCall.get(key)).get(switchKey));
+									String switchValue = ((Map) mapFirstCall.get(key)).get(switchKey) + "";
+									return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
 								}
 							}
 						}
 					}
-					return switchParams(new StringBuffer().append(before).append("").append(after).toString(), map, mapFirstCall);
+					if(!StringUtils.isEmpty(beforeResultMap) && !StringUtils.isEmpty(beforeResultMap.get(switchKey))) {
+						// String switchValue = objectMapper.writeValueAsString(beforeResultMap.get(switchKey));
+						String switchValue = beforeResultMap.get(switchKey) + "";
+						return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+					} else if(!StringUtils.isEmpty(beforeResultMap)) {
+						try {
+							for (String key : beforeResultMap.keySet()) {
+								if(beforeResultMap.get(key) instanceof Map) {
+									if(!StringUtils.isEmpty(((Map) beforeResultMap.get(key)).get(switchKey) + "") && !(((Map) beforeResultMap.get(key)).get(switchKey) + "").equals("0") && !(((Map) beforeResultMap.get(key)).get(switchKey) + "").equals("null")) {
+										// String switchValue = objectMapper.writeValueAsString(((Map) beforeResultMap.get(key)).get(switchKey));
+										String switchValue = ((Map) beforeResultMap.get(key)).get(switchKey)+"";
+										return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+									}
+								}
+							}
+						}catch (Exception e) {e.printStackTrace();}
+						String switchValue = constants.findFromMap(switchKey, beforeResultMap);
+						if(switchValue!=null) {
+							return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+						}
+					}
+					// Properties에서는 한번만 찾는다.
+					if(!StringUtils.isEmpty(constants.getPropertyValue(switchKey))) {
+						// String switchValue = objectMapper.writeValueAsString(constants.getPropertyValue(switchKey));
+						String switchValue = constants.getPropertyValue(switchKey);
+						return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+					}
+					String switchValue = inputUserPopup("통신결과에서 값을 찾을 수 없습니다. 직접 입력해주세요", "${"+switchKey+"} 에 대응하는 값을 입력해주세요.", "");
+					if(!StringUtils.isEmpty(switchValue)) {
+						if(StringUtils.isEmpty(map)) map = new HashMap<String, Object>();
+						map.put(switchKey, switchValue);
+					}
+					return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
 				}
-			}catch (JsonProcessingException e) {
-				return switchParams(new StringBuffer().append(before).append("\"Not convert Object to String cause [").append(e.getMessage()).append("]\"").append(after).toString(), map, mapFirstCall);
+			}catch (Exception e) {
+				String switchValue = inputUserPopup("통신결과에서 값을 찾을 수 없습니다. 직접 입력해주세요", "${"+switchKey+"} 에 대응하는 값을 입력해주세요.", "\"Not convert Object to String cause [");
+				if(!StringUtils.isEmpty(switchValue)) {
+					if(StringUtils.isEmpty(map)) map = new HashMap<String, Object>();
+					map.put(switchKey, switchValue);
+				}
+				return switchParams(new StringBuffer().append(before).append(switchValue).append(e.getMessage()).append("]\"").append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
 			}
 		}
 		return params;
 	}
 
+	public static String inputUserPopup(String title, String message, String defValue) {
+		final String[] result = new String[] {""};
+		
+		Thread threadUiUx = new Thread(new Runnable() {
+			@Override public void run() {
+				result[0] = JOptionPane.showInputDialog(null, message, title, JOptionPane.INFORMATION_MESSAGE);
+			}
+		});
+		Thread threadCmd = new Thread(new Runnable() {
+			@Override public void run() {
+				BufferedReader br = null;
+				try {
+					System.out.println("\n"+title);
+					System.out.print(message + "\n >>> : ");
+					br = new BufferedReader(new InputStreamReader(System.in));
+					result[0] = br.readLine();
+					// br.reset();
+				} catch (IOException e) {} finally {
+					// if(br!=null) try {br.close();} catch (IOException e) {}
+				}
+				
+			}
+		});
+		
+		threadUiUx.start();
+		threadCmd.start();
+		while (true) {
+			try {Thread.sleep(1000);} catch (InterruptedException e) {}
+			if(!StringUtils.isEmpty(result[0])) {
+				threadUiUx.interrupt();
+				threadCmd.interrupt();
+				break;
+			} else if(!threadUiUx.isAlive() && !threadCmd.isAlive() || !threadCmd.isAlive()) { // 서버에서 실행 할 수있으므로 ...
+				result[0] = defValue;
+				break;
+			}
+		}
+		return result[0];
+	}
+
 	public static void main(String[] args) throws Exception {
+		
+		Date date = new Date("Thu Aug 06 2020 14:46:51 GMT+0900 (sadfaㄴㅁㅇㄹdㅁㄴㅇㄹ)");
+		System.out.println(date);
 		String testStr = "userId=\"><scr<script>ipt>alert(1);var test='91094035ABC한글j';</scr<script>ipt><";
-		String encStr = URLEncoder.encode(testStr, Charset.forName("UTF-8"));
+		String encStr = URLEncoder.encode(testStr, Charset.forName("UTF-8").name());
 		System.out.println(encStr);
-		System.out.println(URLDecoder.decode(encStr, Charset.forName("UTF-8")));
+		System.out.println(URLDecoder.decode(encStr, Charset.forName("UTF-8").name()));
 		if(true)return ;
 		System.out.println("asdfasdf\\asdfasdf/asdf/asdf".replaceAll("\\\\", "_").replaceAll("\\/", "_"));
 		String test = "{\"username\":${login.id},\"password\":${login.password}, \"subMap\" : { \"recvCtn\":${testSubMap}, \"content\":\"비즈나루 통합 SMS 단문1\"}, \"testKey\":${thisKey}, \r\n \"list\":${listResult}}";
@@ -468,6 +631,6 @@ public abstract class RestTestBase {
 		list.add(subMap);
 		list.add(subMap);
 		map.put("listResult", list);
-		System.out.println(switchParams(test, map, null));
+		System.out.println(switchParams(test, null, map, null, null, null));
 	}
 }
