@@ -1,6 +1,9 @@
 package kr.co.itcall.test;
 
+import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.math.BigInteger;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
@@ -18,7 +21,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
-//import java.util.Base64;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -29,7 +32,6 @@ import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 
-import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -46,36 +48,167 @@ import org.springframework.web.client.RestClientResponseException;
 
 public class TestCall extends RestTestBase {
 
+	private static final String resultStrFirstCall = null;
+
 	public TestCall(Constants constants) throws IOException {
 		super(constants);
 	}
 
-	public static void main(String[] args) throws Exception {
-		if(args!=null && args.length>0 && args[0].equalsIgnoreCase("start")) {		
-			if(args!=null && args.length>1) {
-				new TestCall(new Constants(args[1])).runTest();
-			} else {
-				new TestCall(new Constants(null)).runTest();
+	public static String choiceAndRunTestCaseConfFile(String inputUserData) throws IOException {
+		String testFileName = "";
+		String log="";
+		BufferedReader br = null;
+		List<File> testConfFiles = new ArrayList<File>();
+		System.out.println("================= 테스트 환경파일 리스트를 출력합니다. ==============");
+		System.out.println("--- Num - : ----- 테스트 환경파일명 -----------------------------------");
+		System.out.println("--------------------------------------------------------------------------");
+		Arrays.asList(new File("./conf/").listFiles()) // .stream().filter(filePath -> filePath.exists()&&filePath.isFile()&&filePath.canRead()&&filePath.getName().endsWith(".conf"))
+				.forEach(filePath -> {
+					if(filePath.exists()&&filePath.isFile()&&filePath.canRead()&&filePath.getName().endsWith(".conf")) {
+						testConfFiles.add(filePath);
+						System.out.println(String.format("  [ %3d ] : %s", testConfFiles.size(), filePath.getPath().split("conf")[1]));
+		}}); /***** ^^^윗쪽^^^은 steam을 이용한 람다표현식이며, vvv아래vvv;는 일반표현식. 일반표현식은 Exception을 부모로 넘길 수 있지만, 람다는 불가능함. ****/
+//		for (File filePath : new File("./conf/").listFiles()) {
+//			if(filePath.exists()&&filePath.isFile()&&filePath.canRead()&&filePath.getName().endsWith(".conf")) {
+//				testConfFiles.add(filePath);
+//				System.out.println(testConfFiles.size() + " : " + filePath.getPath());
+//			}
+//		}
+		System.out.println("===========================================================================");
+		System.out.print  ("출력된 파일번호를 입력하시면 해당 테스트 파일로 테스트를 진행합니다.\n선택할 파일번호는 콤마(,)로 여러개 또는 하이픈(-)으로 범위 선택가능(중복사용불가)\n >>> : ");
+		if(StringUtils.isEmpty(inputUserData)) {
+			br = new BufferedReader(new InputStreamReader(System.in));
+			inputUserData = br.readLine().trim();
+			// br.reset();
+		} else {
+			System.out.println("사용자 자동입력 인수 : " + inputUserData);
+		}
+		if(inputUserData.equalsIgnoreCase("all")) {
+			inputUserData = "1-" + testConfFiles.size();
+		}
+		int userSelectedIndex = -1;
+		if(inputUserData.contains(",")) {
+			System.out.println("===========================================================================");
+			for (String selectedFileName : inputUserData.split(",")) {
+				userSelectedIndex = Integer.parseInt(selectedFileName.trim());
+				selectedFileName = testConfFiles.get(userSelectedIndex-1).getPath();
+				File choiceFile = new File(selectedFileName);
+				if(!choiceFile.canRead() || !choiceFile.isFile()) {
+					throw new IOException("정상적인 파일을 선택하지 않았거나, 파일을 읽을 수 없습니다.[num:"+userSelectedIndex+", name:" + selectedFileName + "]");
+				}
+				log += userSelectedIndex + " : " + selectedFileName +"\n\t";
+				testFileName += selectedFileName +",";
 			}
-		}else if(args!=null && args.length>0 && args[0].equalsIgnoreCase("stop")) {
-			String hostAddr = "localhost";
-			if(args.length>2)
-				hostAddr = args[2];
-			if(args!=null && args.length>1) {
-				new TestCall(new Constants(args[1])).stopTest(hostAddr);
-			} else {
-				new TestCall(new Constants(null)).stopTest(hostAddr);
+			testFileName = testFileName.substring(0, testFileName.lastIndexOf(","));
+			System.out.println("\t" + log + "\n::: " + inputUserData.split(",").length + "개의 파일들을 선택했습니다. 테스트를 진행합니다.");
+			System.out.println("===========================================================================");
+		} else if(inputUserData.contains("-")) {
+			System.out.println("===========================================================================");
+			int start = Integer.parseInt(inputUserData.split("-", 2)[0].trim());
+			int end = Integer.parseInt(inputUserData.split("-", 2)[1].trim());
+			for (int i=start; i <= end; i++) {
+				String selectedFileName = testConfFiles.get(i-1).getPath();
+				File choiceFile = new File(selectedFileName);
+				if(!choiceFile.canRead() || !choiceFile.isFile()) {
+					throw new IOException("정상적인 파일을 선택하지 않았거나, 파일을 읽을 수 없습니다.[num:"+i+", name:" + selectedFileName + "]");
+				}
+				log += i + " : " + selectedFileName +"\n\t";
+				testFileName += selectedFileName +",";
 			}
-		}else {
-			String guide = "Usage : run APP with parameters : [start/stop] [test-configuration-file] [host-addr]\r\n" + 
-					"	[host-addr] is only stop case.\r\n" + 
-					"	";
+			testFileName = testFileName.substring(0, testFileName.lastIndexOf(","));
+			System.out.println("\t" + log + "\n::: " + (end-start+1) + "개의 파일들을 선택했습니다. 테스트를 진행합니다.");
+			System.out.println("===========================================================================");
+		} else {
+			userSelectedIndex = Integer.parseInt(inputUserData);
+			testFileName = testConfFiles.get(userSelectedIndex-1).getPath();
+			System.out.println("===========================================================================");
+			System.out.println("\t[" + testFileName + "] 파일을 선택했습니다. 테스트를 진행합니다.");
+			System.out.println("===========================================================================");
+			File choiceFile = new File(testFileName);
+			if(!choiceFile.canRead() || !choiceFile.isFile()) {
+				throw new IOException("정상적인 파일을 선택하지 않았거나, 파일을 읽을 수 없습니다.[" + testFileName + "]");
+			}
+		}
+		return testFileName;
+	}
+
+	public static String runTestMain(String fileName) throws Exception {
+		TestCall testCall = null;
+		testCall = new TestCall(new Constants(fileName));
+		testCall.runTest();
+		if(testCall.isExitApp) {
+			throw new Exception("테스트 파일[" + fileName + "] 수행 중 에러/예상결과가 도출되지 않아 임의로 종료합니다.");
+		}
+		return "테스트 파일[" + fileName + "] : 성공";
+	}
+	public static void main(String[] args) {
+//		String queryData = "/*** 회원등록을 수행하기전에 BIZNARU.DB에 존재하는 회원정보를 삭제해야 정상적인 등록과정을 수행할 수 있다. ***/DELETE FROM MB_CUST_ACC_BAS WHERE ACC_ID = '${test.val.acc.id}' ; SELECT * FROM MB_CUST_ACC_BAS WHERE ACC_ID = '${test.val.acc.id}'";
+//		String result = clearRemarkStr(queryData, "/*", "*/", 0);
+//		System.out.println(result);
+//		if(!StringUtils.isEmpty(result))return;
+		try {
+			if(args!=null && args.length>0 && args[0].equalsIgnoreCase("start")) { 
+				if(args!=null && args.length>1 && new File(args[1]).isFile()) {
+					System.out.println("==================================================================\n\t" + runTestMain(args[1]) + "\n==================================================================");
+				} else {
+					String testResult = "";
+					String[] callTargetList = choiceAndRunTestCaseConfFile(args.length>2?args[1]:"").split(",");
+					long timeToStartMillseconds = System.currentTimeMillis();
+					for (String callTarget : callTargetList) {
+						testResult += runTestMain(callTarget) + "\n\t";
+					}
+					System.out.println("\n\n");
+					System.out.println("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+					System.out.println("============================================================================\n\t" + testResult.substring(0, testResult.length()-2) + "\n============================================================================");
+					long timeToEndMillseconds = System.currentTimeMillis();
+					long timeGap = timeToEndMillseconds - timeToStartMillseconds;
+					
+					if(callTargetList.length>1) {
+						System.out.println(String.format("\t전체테스트 시작시각 : %s\n\t전체테스트 종료시각 : %s\n\t전체수행 시각(MS) : %,d(ms)\n\t전체수행 시각(TM) : %02d:%02d:%02d.%03d", dateTimeFormat.format(new Date(timeToStartMillseconds)), dateTimeFormat.format(new Date(timeToEndMillseconds)), timeGap, (timeGap/(60*60*1000))%24, (timeGap/(60*1000))%60, (timeGap/(1000))%60, timeGap%1000));
+					}
+				}
+				System.out.println("☆★☆★☆★☆★ 모든 테스트가 성공했습니다. [Succeed in your All Test Process.] ☆★☆★☆★☆★");
+				System.out.println("☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★☆★");
+			}else if(args!=null && args.length>0 && args[0].equalsIgnoreCase("stop")) {
+				String hostAddr = "localhost";
+				if(args.length>2)
+					hostAddr = args[2];
+				if(args!=null && args.length>1) {
+					new TestCall(new Constants(args[1])).stopTest(hostAddr);
+				} else {
+					String[] callTargetList = choiceAndRunTestCaseConfFile(args.length>2?args[1]:"").split(",");
+					for (String callTarget : callTargetList) {
+						new TestCall(new Constants(callTarget)).stopTest(hostAddr);
+					}
+				}
+			}else {
+				String guide = "Usage : run APP with parameters : [start/stop] [test-configuration-file] [host-addr]\r\n" +
+						"	required paramters : start or stop.\r\n" + 
+						"	[host-addr] is only stop case.\r\n" + 
+						"	";
+				System.out.println(guide);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			String guide = "\n" + "Usage : run APP with parameters : [start/stop] [test-configuration-file] [host-addr]\r\n" +
+					"\trequired paramters : start or stop.\r\n" + 
+					"\t[host-addr] is only stop case.\r\n" +
+					"\r\n[테스트 시 에러발생]" + 
+					String.format("\r\n\t☆★○ message[%s]\r\n\t☆★○ cause[%s]\r\n\t☆★○ localMsg[%s]", e.getMessage(), e.getCause(), e.getLocalizedMessage()) +
+					"\r\n";
 			System.out.println(guide);
 		}
+		System.exit(0); // 정상종료를 위한 호출.
 	}
 
 	private HttpHeaders httpHeaders = new HttpHeaders();
 	private RestTemplateInterceptor restTemplateInterceptor;
+	public HttpHeaders getHttpHeaders() {
+		return httpHeaders;
+	}
+	public RestTemplateInterceptor getRestTemplateInterceptor() {
+		return restTemplateInterceptor;
+	}
 
 	public void runTest() throws Exception {
 		
@@ -88,13 +221,12 @@ public class TestCall extends RestTestBase {
 		 ****************************************************************/
 
 		// this.cookie = this.constants.getCookie();
-		
 		String loginId = this.constants.getLoginId();
 		String loginPassword = this.constants.getPassword();
 		if(!StringUtils.isEmpty(loginId) && !StringUtils.isEmpty(loginPassword) && this.constants.isRsaLoginPassword()) {
 			String loginPageUrl = this.constants.getLoginPageUrl();
 			String loginParams = this.constants.getLoginPageParams();
-			HttpHeaders loginPageHttpHeaders = this.constants.getLoginPageHeaderInfo(this.httpHeaders);
+			HttpHeaders loginPageHttpHeaders = this.constants.getLoginPageHeaderInfo(this.httpHeaders, null);
 			restTemplateInterceptor = new RestTemplateInterceptor(loginPageHttpHeaders, this.constants.isLogging());
 			resultStr = loginTest(0, loginPageUrl, loginParams, restTemplateInterceptor, HttpMethod.GET, loginPageHttpHeaders);
 			this.httpHeaders = restTemplateInterceptor.getHttpHeaders();
@@ -117,8 +249,8 @@ public class TestCall extends RestTestBase {
 				rsaExponentId = this.constants.getRsaExponentKey();
 				rsaPublicId = this.constants.getRsaPublicKey();
 				String rsaParams = this.constants.getRsaParams();
-				rsaParams = switchParams(rsaParams, null, switchResult(resultStr), null, this.constants, null); // 일차 수신데이터에서 변경.
-				HttpHeaders rsaHttpHeaders = this.constants.getRsaHeaderInfo(this.httpHeaders);
+				rsaParams = switchParams("", -1, rsaParams, null, switchResult(resultStr), null, this.constants, null); // 일차 수신데이터에서 변경.
+				HttpHeaders rsaHttpHeaders = this.constants.getRsaHeaderInfo(this.httpHeaders, switchResult(resultStr));
 				HttpMethod rsaHttpMethod = this.constants.getRsaHttpMethod();
 				if(restTemplateInterceptor==null) {
 					restTemplateInterceptor = new RestTemplateInterceptor(rsaHttpHeaders, this.constants.isLogging());
@@ -197,9 +329,9 @@ public class TestCall extends RestTestBase {
 			String loginProcessUrl = this.constants.getLoginProcessUrl();
 			String loginParams = this.constants.getLoginProcessParams(); // otpChkYn=N&userId=${login.id}&password=${login.password}
 			loginParams = loginParams.replaceFirst("[$]\\{login[.]id\\}", loginId).replaceFirst("[$]\\{login[.]password\\}", loginPassword);
-			loginParams = switchParams(loginParams, null, switchResult(resultStr), null, this.constants, null); // 일차 수신데이터에서 변경.
+			loginParams = switchParams("", -1, loginParams, null, switchResult(resultStr), null, this.constants, null); // 일차 수신데이터에서 변경.
 	//		RestTemplateInterceptor restTemplateInterceptor = new RestTemplateInterceptor(cookie);
-			HttpHeaders loginHttpHeaders = this.constants.getLoginProcessHeaderInfo(this.httpHeaders);
+			HttpHeaders loginHttpHeaders = this.constants.getLoginProcessHeaderInfo(this.httpHeaders, switchResult(resultStr));
 			if(restTemplateInterceptor==null) {
 				restTemplateInterceptor = new RestTemplateInterceptor(loginHttpHeaders, this.constants.isLogging());
 			} else {
@@ -224,7 +356,7 @@ public class TestCall extends RestTestBase {
 		int printLogTerm = this.constants.getPrintLogTerm();
 		StringBuffer result = new StringBuffer();
 		result.append("\n\n======================================================================================\n테스트가 시작되었습니다.\n")
-				.append("설정 테스트 개수 : ").append(totalTestCount).append("\n")
+				.append("테스트 설정에 대한 반복개수 : ").append(totalTestCount).append("\n")
 				.append("[순서 / 무작위] 호출 여부 : ").append(isLoopRelayTest ? "순서 처리" : "무작위 처리(동시호출과 Active프로세스는 2배차이남.)").append("\n")
 				.append("동시(중복-Active) 호출 개수 : ").append(isLoopRelayTest ? totalMultiConnector : this.constants.getExecutorCorePoolSize()).append("\n")
 				.append("한 개 호출그룹에 속한 호출 개수 : ").append(loopTestCount).append("\n")
@@ -240,16 +372,14 @@ public class TestCall extends RestTestBase {
 		waittingStopCmdServer();
 		this.startTestTime = System.currentTimeMillis();
 
+		final boolean isStopWhenWeMeetFail = constants.isStopFailed();
 		/* TEST.LOOP.START */
 		if(isLoopRelayTest) {
 			Thread[] arrThread = new Thread[totalMultiConnector];
 			for (int i = 0; i < arrThread.length; i++) {
-				Runnable runnable = new Runnable() { 
-					private Map<String, Object> beforeResultMap = new HashMap<String, Object>();
-					@Override public void run() {
+				Runnable runnable = () -> {
 					long totalTermDoneCount = 0;
-					String resultStrFirstCall=null;
-					String resultStr = null;
+					TestDataInfo testDataInfo = null;
 					while (totalTestCount>totalTermDoneCount) {
 						if (isExitApp/* || totalProcessCount>=totalTestCount */)
 							break;
@@ -257,62 +387,36 @@ public class TestCall extends RestTestBase {
 						if(constants.getSleepTimeBeforeGroup()>0)
 							try {Thread.sleep(constants.getSleepTimeBeforeGroup());} catch (InterruptedException e) {}
 						for (long j = 0; j < MAX_LOOP_AND_HEADER_COUNT; j++) {
-							String testName = constants.getTestNameInfo(j);
-							String url = constants.getTestUrlInfo(j);
-							List<Map<String, Object>> preSqlResult = getPreSqlResult(j, beforeResultMap, resultStr, resultStrFirstCall);
-							String params = switchParams(constants.getTestParamsInfo(j, beforeResultMap), preSqlResult, switchResult(resultStr), switchResult(resultStrFirstCall==null?resultStrFirstCall=resultStr:resultStrFirstCall), constants, beforeResultMap);
-							if(!StringUtils.isEmpty(url)) {
-								if(constants.getSleepTimeBeforeTest(j)>0)
-									try {Thread.sleep(constants.getSleepTimeBeforeTest(j));} catch (InterruptedException e) {}
-								try {
-									HttpHeaders httpHeaders = constants.getTestHeaderInfo(j, TestCall.this.httpHeaders);
-									StringBuffer result = new StringBuffer();
-									String threadName = Thread.currentThread().getName();
-									addTheadCount(threadName);
-									result.append("Start[").append(timeFormat.format(new Date())).append("] | End[] | ").append("Thread[").append(threadName).append("] | Name[").append(testName).append("] | Url[").append(url).append("] | Params[").append(params).append("] ||| ");
-									if(constants.isKeepSession(j)) {
-										if(restTemplateInterceptor==null) {
-											restTemplateInterceptor = new RestTemplateInterceptor(httpHeaders, constants.isLogging());
-										} else {
-											restTemplateInterceptor.setHttpHeaders(httpHeaders);
-										}
-										result.append(resultStr = runTest(j, url, params, restTemplateInterceptor, constants.getTestHttpMethod(j), httpHeaders));
-									} else {
-										result.append(resultStr = runTest(j, url, params, httpHeaders, constants.getTestHttpMethod(j)));
-									}
-									try {
-										Map<String, Object> resultMap = objectMapper.readValue(resultStr, Map.class);
-										beforeResultMap.putAll(resultMap);
-									} catch (Exception e) {}
-									result.insert(0, "] : ").insert(0, errorCount).insert(0, "], 실패[").insert(0, totalSuccCount).insert(0, " : 성공[").insert(0, addTotalCount())
-											.insert(result.indexOf("End")+4, timeFormat.format(new Date()));
-									addLog(result.toString() + "\n");
-									if(constants.isLogging() || totalTermDoneCount%printLogTerm==0) {
-										System.out.println(result.toString());
-									}
-								} catch (IOException e) {
-									++systemErrorCount;
-									if(systemErrorCount>100) {
-										isExitApp = true;
-									}
-									e.printStackTrace();
-								} finally {
-									
-								}
-							} else {
+							if(isStopWhenWeMeetFail && errorCount>0) {
+								isExitApp = true;
 								break;
 							}
+							if(!StringUtils.isEmpty(testDataInfo)) {
+								testDataInfo.beforeCallProcess();
+								testDataInfo = new TestDataInfo(testDataInfo, TestCall.this, constants, "", j, totalTermDoneCount, printLogTerm);
+							} else {
+								testDataInfo = new TestDataInfo(TestCall.this, constants, "", j, totalTermDoneCount, printLogTerm);
+							}
+							// resultStr = processToCallUrl(j, TestCall.this.httpHeaders, beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, resultMapFirstCall);
+							processToCallUrl(testDataInfo);
+							
 						}
-					}}};
+					}
+				};
 				arrThread[i] = new Thread(runnable);
 				arrThread[i].setName(String.format("TestCall-%05d", i+1));
 				// executor.execute(runnable);
 			}
-			for (Thread thread : arrThread) {
-				if(thread!=null) {
-					thread.start();
-				}
-			}
+			
+			// Arrays.asList(arrThread).stream().filter(thread -> !StringUtils.isEmpty(thread)).forEach(thread -> thread.start());
+			Arrays.asList(arrThread).stream().filter(thread -> thread!=null).forEach(thread -> thread.start());
+			// Arrays.asList(arrThread).stream().filter(StringUtils::isEmpty).forEach(System.out::println); // 비어있는 경우만 출력된다.
+//			for (Thread thread : arrThread) {
+//				if(thread!=null) {
+//					thread.start();
+//				}
+//			}
+			// Arrays.asList(arrThread).stream().filter(thread -> thread!=null).forEach(thread -> thread.join()); // try...catch...를 부모로 넘길수없다.
 			for (Thread thread : arrThread) {
 				if(thread!=null) {
 					thread.join();
@@ -332,59 +436,25 @@ public class TestCall extends RestTestBase {
 				if(isExitApp || totalProcessCount>=totalCallTestCount*loopTestCount)
 					break;
 				final long totalTermDoneCount = i;
-				Runnable runnable = new Runnable() {
-					private Map<String, Object> beforeResultMap = new HashMap<String, Object>();
-					@Override public void run() {
+				Runnable runnable = () -> {
 					try {Thread.sleep(constants.getSleepTimeBeforeGroup());} catch (InterruptedException e) {}
-					String resultStrFirstCall=null;
-					String resultStr=null;
+					TestDataInfo testDataInfo = null;
 					for (long j = 0; j < MAX_LOOP_AND_HEADER_COUNT; j++) {
-						String testName = constants.getTestNameInfo(j);
-						String url = constants.getTestUrlInfo(j);
-						List<Map<String, Object>> preSqlResult = getPreSqlResult(j, beforeResultMap, resultStr, resultStrFirstCall);
-						String params = switchParams(constants.getTestParamsInfo(j, beforeResultMap), preSqlResult, switchResult(resultStr), switchResult(resultStrFirstCall==null?resultStrFirstCall=resultStr:resultStrFirstCall), constants, beforeResultMap);
-						if(!StringUtils.isEmpty(url)) {
-							try {Thread.sleep(constants.getSleepTimeBeforeTest(j));} catch (InterruptedException e) {}
-							try {
-								HttpHeaders httpHeaders = constants.getTestHeaderInfo(j, TestCall.this.httpHeaders);
-								StringBuffer result = new StringBuffer();
-								String threadName = Thread.currentThread().getName();
-								addTheadCount(threadName);
-								result.append("Start[").append(timeFormat.format(new Date())).append("] | End[] | ").append("Thread[").append(threadName).append("] | Name[").append(testName).append("] | Url[").append(url).append("] | Params[").append(params).append("] ||| ");
-								if(constants.isKeepSession(j)) {
-									if(restTemplateInterceptor==null) {
-										restTemplateInterceptor = new RestTemplateInterceptor(httpHeaders, constants.isLogging());
-									} else {
-										restTemplateInterceptor.setHttpHeaders(httpHeaders);
-									}
-									result.append(resultStr = runTest(j, url, params, restTemplateInterceptor, constants.getTestHttpMethod(j), httpHeaders));
-								} else {
-									result.append(resultStr = runTest(j, url, params, httpHeaders, constants.getTestHttpMethod(j)));
-								}
-								try {
-									Map<String, Object> resultMap = objectMapper.readValue(resultStr, Map.class);
-									beforeResultMap.putAll(resultMap);
-								} catch (Exception e) {}
-								result.insert(0, "] : ").insert(0, errorCount).insert(0, "], 실패[").insert(0, totalSuccCount).insert(0, " : 성공[").insert(0, addTotalCount())
-										.insert(result.indexOf("End")+4, timeFormat.format(new Date()));
-								addLog(result.toString() + "\n");
-								if(constants.isLogging() || totalTermDoneCount%printLogTerm==0) {
-									System.out.println(result.toString());
-								}
-							} catch (IOException e) {
-								++systemErrorCount;
-								if(systemErrorCount>100) {
-									isExitApp = true;
-								}
-								e.printStackTrace();
-							} finally {
-								
-							}
-						} else {
+						if(isStopWhenWeMeetFail && errorCount>0) {
+							isExitApp = true;
 							break;
 						}
+						if(!StringUtils.isEmpty(testDataInfo)) {
+							testDataInfo.beforeCallProcess();
+							testDataInfo = new TestDataInfo(TestCall.this, constants, "", j, totalTermDoneCount, printLogTerm);
+						} else {
+							testDataInfo = new TestDataInfo(testDataInfo, TestCall.this, constants, "", j, totalTermDoneCount, printLogTerm);
+						}
+						// resultStr = processToCallUrl(j, TestCall.this.httpHeaders, beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, resultMapFirstCall);
+						processToCallUrl(testDataInfo);
+						
 					}
-				}};
+				};
 				try {
 					executor.execute(runnable);
 				}catch (Exception e) {
@@ -394,11 +464,13 @@ public class TestCall extends RestTestBase {
 					System.exit(-1);
 				}
 				while (true) {
+					try {Thread.sleep(1000);} catch (InterruptedException e) {}
 					if(((ThreadPoolTaskExecutor)executor).getThreadPoolExecutor().getQueue().remainingCapacity() > this.constants.getExecutorQueueCapacity()/3)
 						break;
 				}
 			}
 			while (true) {
+				try {Thread.sleep(1000);} catch (InterruptedException e) {}
 				if(isExitApp || ((ThreadPoolTaskExecutor)executor).getActiveCount() <= 0)
 					break;
 			}
@@ -414,20 +486,16 @@ public class TestCall extends RestTestBase {
 
 
 
-	private synchronized static void addTheadCount(String threadName) {
-		Long threadCount = countOfThead.get(threadName);
-		if(threadCount==null) {
-			countOfThead.put(threadName, 1L);
-		} else {
-			countOfThead.put(threadName, ++threadCount);
-		}
-	}
-
-	public String runTest(long index, String url, String params, HttpHeaders httpHeaders) {
-		return runTest(index, url, params, httpHeaders, HttpMethod.POST);
-	}
-	public String runTest(long index, String url, String params, HttpHeaders httpHeaders, HttpMethod httpMethod) {
-		
+//	public String runTest(String postFix, long index, String url, String params, HttpHeaders httpHeaders, Map<String, Object> beforeResultMap, long totalTermDoneCount, int printLogTerm, Map<String,Object> mapKeepData, Map<String,Object> mapFirstCall) {
+//		return runTest(postFix, index, url, params, httpHeaders, HttpMethod.POST, beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, mapFirstCall);
+//	}
+//	public String runTest(String postFix, long index, String url, String params, HttpHeaders httpHeaders, HttpMethod httpMethod, Map<String, Object> beforeResultMap, long totalTermDoneCount, int printLogTerm, Map<String,Object> mapKeepData, Map<String,Object> mapFirstCall) {
+	public String runTest(TestDataInfo testDataInfo, HttpHeaders httpHeaders) {
+		String postFix = testDataInfo.getPostFix();
+		long index = testDataInfo.getIndex();
+		String url = testDataInfo.getUrl();
+		String params = testDataInfo.getParams();
+		HttpMethod httpMethod = testDataInfo.getMethod();
 //		MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
 //
 //		if (httpHeaders != null) {
@@ -443,28 +511,37 @@ public class TestCall extends RestTestBase {
 			this.constants.setMultipartFile(index, body);
 			try{
 				Map<String, Object> mapParams = switchResult(params);
-				for (String key : mapParams.keySet()) {
-					body.add(key, mapParams.get(key));
-				}
+				mapParams.forEach((key, value) -> body.add(key, value));
+//				for (String key : mapParams.keySet()) {
+//					body.add(key, mapParams.get(key));
+//				}
 			}catch (Exception e) {
-				for (String element : params.split("&")) {
-						String key = element.split("=",2)[0];
-						try {
-//							try {
-//								Long.parseLong(element.split("=",2)[1]);
-//								body.add(key, element.split("=",2)[1]);
-//							}catch (Exception ex) {
-//								try {
-//									new Date(element.split("=",2)[1]);
-									body.add(key, element.split("=",2)[1]);
-//								} catch (Exception e2) {
-//									body.add(key, URLEncoder.encode(element.split("=",2)[1], "MS949"));
-//								}
-//							}
-						}catch (Exception ex) {
-							body.add(key, "");
-						}
-				}
+				Arrays.asList(params.split("&")).forEach(element -> {
+					String key = element.split("=",2)[0];
+					try {
+						body.add(key, element.split("=",2)[1]);
+					} catch (Exception ex) {
+						body.add(key, "");
+					}
+				});
+//				for (String element : params.split("&")) {
+//						String key = element.split("=",2)[0];
+//						try {
+////							try {
+////								Long.parseLong(element.split("=",2)[1]);
+////								body.add(key, element.split("=",2)[1]);
+////							}catch (Exception ex) {
+////								try {
+////									new Date(element.split("=",2)[1]);
+//									body.add(key, element.split("=",2)[1]);
+////								} catch (Exception e2) {
+////									body.add(key, URLEncoder.encode(element.split("=",2)[1], "MS949"));
+////								}
+////							}
+//						}catch (Exception ex) {
+//							body.add(key, "");
+//						}
+//				}
 			}
 			// MediaType mediaType = new MediaType("application", "x-www-form-urlencoded", Charset.forName("EUC-KR"));
 			// httpHeaders.setContentType(mediaType);
@@ -495,8 +572,22 @@ public class TestCall extends RestTestBase {
 				response = result.getBody();
 				break;
 			}
+			checkResultIsSuccess(testDataInfo, response);
 			addSuccessCount();
 		} catch (Exception e) {
+			/***************************************
+			 * 실패 시 실패카운트 전에 실패일경우
+			 * 호출하는 케이스가 있다면...
+			 * 실패시 호출케이스의 결과에 따라 결정한다.
+			 **************************************/
+			if(this.constants.isExistFailedProcess(index, postFix)) {
+				addSuccessCount(); // 실패 시 호출이 존재하므로 현재 실패는 성공으로 간주한다. : 전체 카운트를 맞추기 위함.
+				// return response = processToCallUrl(postFix+".failed", index, httpHeaders, beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, mapFirstCall);
+				TestDataInfo failToCallDataInfo = new TestDataInfo(this, testDataInfo, testDataInfo.getPostFix()+".failed");
+				// testDataInfo.setPostFix(testDataInfo.getPostFix()+".failed");
+				return response = String.format("실패시 추가호출 postFix[%s], 응답 : %s", failToCallDataInfo.getPostFix(), processToCallUrl(failToCallDataInfo).getResult().toString()); // (postFix+".failed", index, httpHeaders, beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, mapFirstCall);
+			}
+			
 			addErrorCount();
 			if(e instanceof RestClientResponseException) {
 				response = "Exception.ERROR ::: " + e.getMessage() + " | " + ((RestClientResponseException)e).getResponseBodyAsString();
@@ -508,13 +599,63 @@ public class TestCall extends RestTestBase {
 		return response;
 	}
 
-	public String runTest(long index, String url, String params, RestTemplateInterceptor restTemplateInterceptor, HttpMethod httpMethod, HttpHeaders httpHeaders) {
+	private void checkResultIsSuccess(TestDataInfo testDataInfo, String response) throws Exception {
+		// String postFix, long index, String response, Map<String, Object> mapKeepData, Map<String, Object> mapFirstCall, Map<String, Object> beforeResultMap;
+		String postFix = testDataInfo.getPostFix();
+		long index = testDataInfo.getIndex();
+		Map<String, Object> beforeResultMap = testDataInfo.getBeforeResultMap();
+		Map<String,Object> mapKeepData = testDataInfo.getMapKeepData();
+		Map<String,Object> mapFirstCall = testDataInfo.getResultMapFirstCall();
+		
+		String resultLike = constants.getTestResultLike(index, postFix, mapKeepData, mapFirstCall, beforeResultMap);
+		if(!StringUtils.isEmpty(resultLike)){
+			int foundIndex;
+			for (String likeCut : resultLike.split(",")) {
+				String targetStr = response;
+				if(!StringUtils.isEmpty(likeCut)) {
+					foundIndex = 0;
+					for (String like : likeCut.split("[*]")) {
+						if(!StringUtils.isEmpty(like)) {
+							foundIndex = targetStr.indexOf(like);
+							if(foundIndex<0) {
+								throw new Exception(String.format("통신은 성공이나 결과문자열에 예상된 값[%s]이 존재하지 않아 실패처리 되었습니다. 결과예상패턴[%s], 통신결과[%s]", like, resultLike, response));
+							}
+							targetStr = targetStr.substring(foundIndex+like.length());
+						}
+					}
+				}
+			}
+		}
+	}
+
+// 	public String runTest(String postFix, long index, String url, String params, RestTemplateInterceptor restTemplateInterceptor, HttpMethod httpMethod, HttpHeaders httpHeaders, Map<String, Object> beforeResultMap, long totalTermDoneCount, int printLogTerm, Map<String,Object> mapKeepData, Map<String,Object> mapFirstCall) {
+	public String runTest(TestDataInfo testDataInfo, RestTemplateInterceptor restTemplateInterceptor, HttpHeaders httpHeaders) {
+		String postFix = testDataInfo.getPostFix();
+		long index = testDataInfo.getIndex();
+		String url = testDataInfo.getUrl();
+		String params = testDataInfo.getParams();
+		HttpMethod httpMethod = testDataInfo.getMethod();
+		
 		String response;
 		try {
-			 response = loginTest(index, url, params, restTemplateInterceptor, httpMethod, httpHeaders);
+			response = loginTest(index, url, params, restTemplateInterceptor, httpMethod, httpHeaders);
+			checkResultIsSuccess(testDataInfo, response);
 			addSuccessCount();
 			return response;
 		} catch (Exception e) {
+			/***************************************
+			 * 실패 시 실패카운트 전에 실패일경우
+			 * 호출하는 케이스가 있다면...
+			 * 실패시 호출케이스의 결과에 따라 결정한다.
+			 **************************************/
+			if(this.constants.isExistFailedProcess(index, postFix)) {
+				addSuccessCount(); // 실패 시 호출이 존재하므로 현재 실패는 성공으로 간주한다. : 전체 카운트를 맞추기 위함.
+				TestDataInfo failToCallDataInfo = new TestDataInfo(this, testDataInfo, testDataInfo.getPostFix()+".failed");
+				// testDataInfo.setPostFix(testDataInfo.getPostFix()+".failed");
+				// return response = processToCallUrl(failToCallDataInfo).getResult().toString(); // (postFix+".failed", index, httpHeaders, beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, mapFirstCall);
+				return response = String.format("실패시 추가호출 postFix[%s], 응답 : %s", failToCallDataInfo.getPostFix(), processToCallUrl(failToCallDataInfo).getResult().toString()); // (postFix+".failed", index, httpHeaders, beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, mapFirstCall);
+			}
+			
 			addErrorCount();
 			if(e instanceof RestClientResponseException) {
 				response = "Exception.ERROR ::: " + e.getMessage() + " | " + ((RestClientResponseException)e).getResponseBodyAsString();
@@ -561,11 +702,129 @@ public class TestCall extends RestTestBase {
 		return response;
 	}
 
+	public static String clearRemarkStr(String data, String startRemark, String endRemark, int position) {
+//		if(StringUtils.isEmpty(data)) return data;
+//		// data=data.replaceAll("\r", "");
+//		int start = data.indexOf(startRemark);
+//		if(start>=0) {
+//			if(StringUtils.isEmpty(endRemark)) {
+//				int end = data.indexOf("\n", start);
+//				if(start<end) {
+//					if(data.lastIndexOf("\n", start)>=0){
+//						return clearRemarkStr(data.substring(0, start) + (data.substring(data.lastIndexOf("\n", start)+1, start).trim()!="" ? "\n" : "") + data.substring((end+1)>data.length()?data.length():end+1), startRemark, endRemark, position);
+//					}else{
+//						return clearRemarkStr(data.substring(0, start) + /*(data.charAt(start-1)!="\n" ? "\n" : "") + */data.substring((end+1)>data.length()?data.length():end+1), startRemark, endRemark, position);
+//					}
+//				} else {
+//					return data.substring(0, start);
+//				}
+//			} else {
+//				int end = data.indexOf(endRemark, start+startRemark.length());
+//				if(start<end){
+//					return clearRemarkStr(data.substring(0, start) + data.substring(end+endRemark.length()), startRemark, endRemark, position);
+//				} else {
+//					return data.substring(0, start);
+//				}
+//			}
+//		}
+//		return data;
+		
+		
+		if(StringUtils.isEmpty(data)) return data;
+		// data=data.replace(/[\r]/g, ""); // 자바스크립트용.
+		if(StringUtils.isEmpty(position)){
+			position = 0;
+		}
+		int start = data.indexOf(startRemark, position);
+		if(start>=0) {
+			int startAt = data.lastIndexOf("\n", start)+1;
+			int endAt = data.indexOf("\n", start);
+			if(endAt<0)
+				endAt = data.length();
+			if(startAt>=0 && startAt<endAt && getWithoutConstStr(data.substring(startAt, endAt)).indexOf(startRemark)<0){
+				return clearRemarkStr(data, startRemark, endRemark, start+startRemark.length());
+			}
 
-	private List<Map<String, Object>> getPreSqlResult(long index, Map<String, Object> beforeResultMap, String resultStr, String resultStrFirstCall) {
+			if(StringUtils.isEmpty(endRemark)) {
+				int end = data.indexOf("\n", start);
+				if(start<end) {
+//					if(data.lastIndexOf("\n", start)>=0){
+						return clearRemarkStr(data.substring(0, start) + (data.substring(startAt, start).trim()!="" ? "\n" : "") + data.substring((end+1)>data.length()?data.length():end+1), startRemark, endRemark, position);
+//					}else{
+//						return libFrame._clearRemarkStr(data.substring(0, start) + /*(data.charAt(start-1)!="\n" ? "\n" : "") + */data.substring((end+1)>data.length?data.length:end+1), startRemark, endRemark, position);
+//					}
+				} else {
+					return data.substring(0, start);
+				}
+			} else {
+				int end = data.indexOf(endRemark, start+startRemark.length());
+				startAt = data.lastIndexOf("\n", end)+1;
+				endAt = data.indexOf("\n", end);
+				if(endAt<0)
+					endAt = data.length();
+				while (start<end && startAt>=0 && startAt<endAt && getWithoutConstStr(data.substring(startAt, endAt)).indexOf(endRemark)<0) {
+					end = data.indexOf(endRemark, endAt+1);
+					startAt = data.lastIndexOf("\n", end)+1;
+					endAt = data.indexOf("\n", end);
+					if(endAt<0)
+						endAt = data.length();
+				}
+				if(start<end){
+					return clearRemarkStr(data.substring(0, start) + data.substring(end+endRemark.length()), startRemark, endRemark, position);
+				} else {
+					return data.substring(0, start);
+				}
+			}
+		}
+		return data;
+	}
+	public static String getWithoutConstStr(String row){
+		// 상수로 선언된 데이터는 제외한다. 단일라인에서...
+//		var startAt = data.lastIndexOf("\n", start)+1;
+//		var endAt = data.indexOf("\n", start);
+//		var row = data.substring(startAt, endAt);
+		String keptRow = "";
+//		boolean isSlush = false; // 자바스크립트용.
+		boolean isBSlush = false;
+		boolean isSConst = false;
+		boolean isDConst = false;
+		boolean isConst = false;
+		for (int i = 0; i < row.length(); i++) {
+//			if(!isConst && row.charAt(i)=='/')
+//				isSlush = !isSlush;
+			if(!isBSlush && row.charAt(i)=='\\'){
+				isBSlush = true;
+			}else if(isBSlush){
+				isBSlush = false;
+				continue;
+			}
+			if(isSConst && row.charAt(i)=='\''){
+				isSConst = isConst = false;
+				continue;
+			}
+			if(isDConst && row.charAt(i)=='"'){
+				isDConst = isConst = false;
+				continue;
+			}
+			if(isConst/* || isSlush*/) continue;
+
+			if(row.charAt(i)=='\''){
+				isSConst = isConst = true;
+				continue;
+			}
+			if(row.charAt(i)=='"'){
+				isDConst = isConst = true;
+				continue;
+			}
+			keptRow+=row.charAt(i);
+		}
+		// console.log(keptRow);
+		return keptRow;
+	};
+	public List<Map<String, Object>> getPreSqlResult(String postFix, long index, Map<String, Object> beforeResultMap, Map<String,Object> mapKeepData, Map<String,Object> resultMapFirstCall) {
 		List<Map<String, Object>> result = null;
-		String dbKey = constants.getPropertyValue("test."+index+".db");
-		String query = constants.getPropertyValue("test."+index+".query");
+		String dbKey = constants.getPropertyValue("test."+index+postFix+".db");
+		String query = constants.getPropertyValue("test."+index+postFix+".query");
 		if(StringUtils.isEmpty(dbKey) || StringUtils.isEmpty(query))
 			return result;
 		String dbName   = constants.getPropertyValue(dbKey+".name");
@@ -578,12 +837,28 @@ public class TestCall extends RestTestBase {
 		ResultSet rs = null;
 		try {
 			
-			query = switchParams(constants.switchParams(0, query, beforeResultMap), null, switchResult(resultStr), switchResult(resultStrFirstCall==null?resultStrFirstCall=resultStr:resultStrFirstCall), constants, beforeResultMap);
-			
+			query = switchParams(postFix, index, constants.switchParams(0, query, beforeResultMap), null, mapKeepData, resultMapFirstCall, constants, beforeResultMap);
+			query = clearRemarkStr(query, "/*", "*/", 0);
+			query = clearRemarkStr(query, "//", null, 0);
+			query = clearRemarkStr(query, "--", null, 0);
 			Class.forName(dbDriver);
 			conn = DriverManager.getConnection(dbUrl, dbUserId, dbPwd);
-			pstmt = conn.prepareStatement(query);
-			rs = pstmt.executeQuery();
+			/************ 다중으로 입력되는 쿼리는 마지막 수행문만 취한다. ************/
+			String[] runningQuerys = query.split(";");
+			for (String eachQuery : runningQuerys) {
+				if(StringUtils.isEmpty(eachQuery) && StringUtils.isEmpty(eachQuery.trim()))
+					continue;
+				pstmt = conn.prepareStatement(eachQuery);
+				if(eachQuery.trim().toLowerCase().startsWith("insert") || eachQuery.trim().toLowerCase().startsWith("delete") || eachQuery.trim().toLowerCase().startsWith("update") || eachQuery.trim().toLowerCase().startsWith("merge")){
+					System.out.println("test."+index+postFix+".query 수행절차값의 사전쿼리문 실행 : " + eachQuery);
+					System.out.println("test."+index+postFix+".query 수행절차값의 사전쿼리문 결과 : " + pstmt.executeUpdate());
+				} else {
+					rs = pstmt.executeQuery();
+				}
+			}
+			if(StringUtils.isEmpty(rs)) {
+				return null;
+			}
 			ResultSetMetaData metaData = rs.getMetaData();
 			int sizeOfColumn = metaData.getColumnCount();
 			result = new ArrayList<Map<String,Object>>();
@@ -628,6 +903,110 @@ public class TestCall extends RestTestBase {
 		byte[] bCipher = cipher.doFinal(data.getBytes(charset));
 		String encodedHex = byteArrayToHex(bCipher);
 		return encodedHex;
+	}
+
+//	public TestDataInfo processToCallUrl(TestDataInfo testDataInfo) {
+//		// (long index, HttpHeaders httpHeaderParams, Map<String, Object> beforeResultMap, long totalTermDoneCount, int printLogTerm, Map<String,Object> mapKeepData, Map<String,Object> resultMapFirstCall) {
+//		// return processToCallUrl("", index, httpHeaderParams, beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, resultMapFirstCall);
+//		return processToCallUrl(testDataInfo);
+//	}
+
+	public TestDataInfo processToCallUrl
+			(TestDataInfo testDataInfo) {
+			// (String postFix, long index, HttpHeaders httpHeaderParams, Map<String, Object> beforeResultMap, long totalTermDoneCount, int printLogTerm, Map<String,Object> mapKeepData, Map<String,Object> resultMapFirstCall) {
+//		String result = null;
+//		String testName = constants.getTestNameInfo(index, postFix);
+//		String threadName = Thread.currentThread().getName();
+//		String url = constants.getTestUrlInfo(index, postFix, mapKeepData, resultMapFirstCall, beforeResultMap);
+//		List<Map<String, Object>> preSqlResult = getPreSqlResult(postFix, index, beforeResultMap, mapKeepData, resultMapFirstCall);
+//		String params = switchParams(postFix, index, constants.getTestParamsInfo(index, postFix, beforeResultMap), preSqlResult, mapKeepData, resultMapFirstCall, constants, beforeResultMap);
+		if(!StringUtils.isEmpty(testDataInfo.getUrl())) {
+			testDataInfo.waitBeforeTest();
+			// StringBuffer sb = new StringBuffer();
+			try {
+				addTheadCount(testDataInfo.getThreadName());
+				if(testDataInfo.isExistValueForPreSqlResult()) {
+//					/**********************************************************************************************
+//					 * 사전조회쿼리와 test.[num].sql.key에 해당하는 값이 존재하면 본 테스트는 건너뛴다.
+//					 * 즉, 없을경우 등록하는 업무를 여기서 처리한다.
+//					 */
+//					addSuccessCount();
+//					String prePassResult = String.format("%d : 성공[%d], 실패[%d] : Start[%s] | End[-cancel-] | Thread[%s] | Name[%s] | Url[%s] ||| 사전조건조회값[%s]이 존재하여 성공으로 처리하며, 수행하지는 않습니다. ||| 사전조건조회 쿼리결과를 다음인수로 전달합니다.\n"
+//							, addTotalCount(), totalSuccCount, errorCount, timeFormat.format(new Date()), threadName, testName, url, constants.getPropertyValue("test." + index + postFix + ".sql.key", ""));
+//					addLog(prePassResult);
+//					if(constants.isLogging() || totalTermDoneCount%printLogTerm==0) {
+//						System.out.print(prePassResult);
+//					}
+//					try {
+//						result = objectMapper.writeValueAsString(preSqlResult);
+//						addLog("\t사전조회결과값 : " + result + "\n");
+//						if(constants.isLogging() || totalTermDoneCount%printLogTerm==0) {
+//							System.out.println("\t사전조회결과값 : " + result);
+//						}
+//					}catch (JsonProcessingException e) {}
+//					return result;
+					return testDataInfo;
+				}
+				testDataInfo.doRunningTestCall();
+//				HttpHeaders httpHeaders = testDataInfo.getTestHeaderInfo();
+//				testDataInfo.addLog("Start[").append(timeFormat.format(new Date())).append("] | End[] | ").append("Thread[").append(threadName).append("] | Name[").append(testName).append("] | Url[").append(url).append("]\n\t요청 Params[").append(params).append("]\n\t응답 ");
+//				if(constants.isKeepSession(index, postFix)) {
+//					if(restTemplateInterceptor==null) {
+//						restTemplateInterceptor = new RestTemplateInterceptor(httpHeaders, constants.isLogging());
+//					} else {
+//						restTemplateInterceptor.setHttpHeaders(httpHeaders);
+//					}
+//					sb.append(result = runTest(postFix, index, url, params, restTemplateInterceptor, constants.getTestHttpMethod(index, postFix), httpHeaders, beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, resultMapFirstCall));
+//				} else {
+//					sb.append(result = runTest(postFix, index, url, params, httpHeaders, constants.getTestHttpMethod(index, postFix), beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, resultMapFirstCall));
+//				}
+//				
+//				/*** 바로전 호출에서 저장하라는 Key가 있고, 해당 결과값이 있으면 영구저장 버튼에 저장한다. ***/
+//				constants.addKeepDataToMap(mapKeepData, postFix, index, result);
+//				
+////				try {
+////					beforeResultMap.putAll(objectMapper.readValue(result, Map.class));
+////				} catch (Exception e) {}
+//				sb.insert(0, "] : ").insert(0, errorCount).insert(0, "], 실패[").insert(0, totalSuccCount).insert(0, " : 성공[").insert(0, addTotalCount())
+//						.insert(sb.indexOf("End")+4, timeFormat.format(new Date()));
+//				// 선행쿼리가 있으면 로그에 출력해준다.
+//				if(!StringUtils.isEmpty(constants.getPropertyValue("test."+index+postFix+".query")) && !StringUtils.isEmpty(preSqlResult) && !preSqlResult.isEmpty()) {
+//					sb.append("\n\tbefore Query : ").append(constants.getPropertyValue("test."+index+postFix+".query")).append("\n\tquery Result (다중쿼리는 마지막결과만 출력됨) : ");
+//					try {
+//						sb.append(objectMapper.writeValueAsString(preSqlResult));
+//					}catch (JsonProcessingException e) {
+//						sb.append("Cannot Convert from ObjectMapper : error[").append(e.getMessage()).append(", ").append(e.getLocalizedMessage()).append(", ").append(e.getCause()).append("]");
+//					}
+//				}
+//				addLog(sb.append("\n").toString());
+//				if(constants.isLogging() || totalTermDoneCount%printLogTerm==0) {
+//					String callInfo = sb.substring(0, sb.indexOf("\n\t요청"));
+//					String callReq = sb.substring(sb.indexOf("\n\t요청 Params["), sb.indexOf("\n\t응답 "));
+//					String callRes = sb.substring(sb.indexOf("\n\t응답 "));
+//					System.out.print(callInfo);
+//					System.out.print(callReq.length()>MAX_LOG_PRINT_TO_CONSOLE?callReq.substring(0, MAX_LOG_PRINT_TO_CONSOLE)+"...":callReq);
+//					System.out.print(callRes.length()>MAX_LOG_PRINT_TO_CONSOLE?callRes.substring(0, MAX_LOG_PRINT_TO_CONSOLE)+"...":callRes);
+//					if(!StringUtils.isEmpty(preSqlResult) && !preSqlResult.isEmpty()) {
+//						System.out.println(" ||| 선행쿼리 조회 (다중 쿼리의 경우엔 마지막 수행쿼리만 출력됨) Count : " + preSqlResult.size());
+//					} else {
+//						System.out.println("");
+//					}
+//				}
+			} catch (Exception e) {
+				testDataInfo.doErrorProcess(e);
+//				try {addLogFlush(sb.append("\n Error[").append(e.getMessage()).append("], Cause[").append(e.getCause()).append("], LocalError[").append(e.getLocalizedMessage()).append("]").toString());} catch (IOException e1) {}
+//				++systemErrorCount;
+//				if(systemErrorCount>100) {
+//					isExitApp = true;
+//				}
+//				e.printStackTrace();
+			} finally {
+				
+			}
+		} else {
+			// break;
+		}
+		return testDataInfo;
 	}
 
 }

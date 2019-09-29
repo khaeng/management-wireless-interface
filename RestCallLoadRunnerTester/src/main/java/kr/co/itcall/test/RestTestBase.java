@@ -1,6 +1,5 @@
 package kr.co.itcall.test;
 
-import java.awt.LayoutManager;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -29,17 +28,18 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.Executor;
 
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
+import javax.net.ssl.SSLContext;
 import javax.swing.JOptionPane;
-import javax.swing.JTextArea;
 
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.http.ssl.SSLContexts;
+import org.apache.http.ssl.TrustStrategy;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.client.BufferingClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpRequest;
@@ -60,12 +60,15 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 
 public abstract class RestTestBase {
 
-	public static Map<String, Long> countOfThead = new TreeMap<String, Long>();
+	public static final int MAX_LOG_PRINT_TO_CONSOLE = 200;
+	public static Map<String, Long> countOfThead;
+	private static ServerSocket stopWaitingServerSocket;
 
 	public static final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyyMMdd.HHmmss.SSS");
 	public static final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
@@ -104,6 +107,19 @@ public abstract class RestTestBase {
 	}
 
 	protected void initialize() throws IOException {
+
+		// 다중 처리를 위해서 static 변수들은 초기화 한다.
+		// isExitApp = false;
+		countOfThead = new TreeMap<String, Long>();
+		totalTestCount = 0;
+		totalProcessCount = 0;
+		totalSuccCount = 0;
+		errorCount = 0;
+		systemErrorCount = 0;
+		isLoopRelayTest = false;
+		loopTestCount = 0;
+		totalMultiConnector = 0;
+
 		this.arrRestTemplateForRestClient = new RestTemplate[this.constants.getMaxRestTemplateUnitForRestClient()];
 
 		String path = this.constants.getLogPath();
@@ -175,24 +191,79 @@ public abstract class RestTestBase {
 	}
 
 	private CloseableHttpClient getHttpClientWithSSL(RestTemplateInterceptor restTemplateInterceptor) {
+		if(!StringUtils.isEmpty(this.constants.getProtocols())) {
+			return getHttpClientWithTLS12only(restTemplateInterceptor, this.constants.getProtocols());
+		}
 		CloseableHttpClient httpClient = null;
 		try {
+			TrustStrategy trustStrategy = new org.apache.http.ssl.TrustStrategy() {
+				public boolean isTrusted(X509Certificate[] arg0, String arg1) throws CertificateException {
+					return true;
+				}
+			};
+			SSLContext sslContext = SSLContexts.custom()//.useProtocol("TLSv1.2") // TLSv1, TLSv1.1, TLSv1.2, SSL, TLS
+					.loadTrustMaterial(null, trustStrategy)
+					.build();
+			
 			RequestConfig config = RequestConfig.custom().setConnectTimeout(this.constants.getConnectionTimeoutForRestClient() * 1000)
 					.setConnectionRequestTimeout(this.constants.getReadTimeoutForRestClient() * 1000).setSocketTimeout(this.constants.getReadTimeoutForRestClient() * 1000).build();
-			httpClient = HttpClients.custom().setDefaultRequestConfig(config)
-					.setHostnameVerifier(new AllowAllHostnameVerifier()).setSslcontext(
-							new SSLContextBuilder().loadTrustMaterial(null, new org.apache.http.ssl.TrustStrategy() {
-								public boolean isTrusted(X509Certificate[] arg0, String arg1)
-										throws CertificateException {
-									return true;
-								}
-							}).build())
-					.setRedirectStrategy(
-							new RestTemplateRedirectInterceptor(restTemplateInterceptor)
-					)
+			
+			httpClient = HttpClientBuilder.create().setDefaultRequestConfig(config)
+					.setHostnameVerifier(new AllowAllHostnameVerifier())
+					.setSslcontext(sslContext)
+					.setRedirectStrategy(new RestTemplateRedirectInterceptor(restTemplateInterceptor))
 					.setMaxConnTotal(this.constants.getMaxConnTotalForRestClient())
 					.setMaxConnPerRoute(this.constants.getMaxConnPerRouteForRestClient())
 					.build();
+			
+//			httpClient = HttpClients.custom().setDefaultRequestConfig(config)
+//					.setHostnameVerifier(new AllowAllHostnameVerifier()).setSslcontext(
+//							new SSLContextBuilder().loadTrustMaterial(null, new org.apache.http.ssl.TrustStrategy() {
+//								public boolean isTrusted(X509Certificate[] arg0, String arg1)
+//										throws CertificateException {
+//									return true;
+//								}
+//							}).build())
+//					.setRedirectStrategy(
+//							new RestTemplateRedirectInterceptor(restTemplateInterceptor)
+//					)
+//					.setMaxConnTotal(this.constants.getMaxConnTotalForRestClient())
+//					.setMaxConnPerRoute(this.constants.getMaxConnPerRouteForRestClient())
+//					.setSSLContext(sslContext)
+//					.build();
+		} catch (NoSuchAlgorithmException  | KeyManagementException | KeyStoreException e) {
+			e.printStackTrace();
+		}
+		
+		return httpClient;
+	}
+	private CloseableHttpClient getHttpClientWithTLS12only(RestTemplateInterceptor restTemplateInterceptor, String protocols) {
+		CloseableHttpClient httpClient = null;
+		try {
+			TrustStrategy trustStrategy = new org.apache.http.ssl.TrustStrategy() {
+				public boolean isTrusted(X509Certificate[] arg0, String arg1) throws CertificateException {
+					return true;
+				}
+			};
+			final SSLContext sslContext = SSLContexts.custom() //.useProtocol("TLSv1.2") // TLSv1, TLSv1.1, TLSv1.2, SSL, TLS
+					.loadTrustMaterial(null, trustStrategy)
+					.build();
+			
+			RequestConfig config = RequestConfig.custom().setConnectTimeout(this.constants.getConnectionTimeoutForRestClient() * 1000)
+					.setConnectionRequestTimeout(this.constants.getReadTimeoutForRestClient() * 1000).setSocketTimeout(this.constants.getReadTimeoutForRestClient() * 1000).build();
+			
+			String[] arrProtocal = protocols.split(","); // "SSLv3,TLSv1,TLSv1.1,TLSv1.2".split(","); // new String[] {"TLSv1.2"};
+			final SSLConnectionSocketFactory sslConnectionSocketFactory = new SSLConnectionSocketFactory(sslContext,arrProtocal,null, NoopHostnameVerifier.INSTANCE);
+			
+			httpClient = HttpClients.custom() // HttpClientBuilder.create()
+					.setSSLSocketFactory(sslConnectionSocketFactory)
+					.setDefaultRequestConfig(config)
+					// .setHostnameVerifier(new AllowAllHostnameVerifier())
+					.setRedirectStrategy(new RestTemplateRedirectInterceptor(restTemplateInterceptor))
+					.setMaxConnTotal(this.constants.getMaxConnTotalForRestClient())
+					.setMaxConnPerRoute(this.constants.getMaxConnPerRouteForRestClient())
+					.build();
+			
 		} catch (NoSuchAlgorithmException  | KeyManagementException | KeyStoreException e) {
 			e.printStackTrace();
 		}
@@ -269,16 +340,23 @@ public abstract class RestTestBase {
 		this.bwLogger.close();
 	}
 
+	protected void waittingStopCmdServerTerminating() {
+		if(!StringUtils.isEmpty(stopWaitingServerSocket) /*&& this.serverSocket.isBound() && !this.serverSocket.isClosed()*/) {
+			try { stopWaitingServerSocket.close(); } catch (IOException e) { e.printStackTrace(); }
+			stopWaitingServerSocket = null;
+		}
+	}
 	protected void waittingStopCmdServer() {
-		new Thread(new Runnable() { @Override public void run() {
+		new Thread(() -> {
 			int waitPort = constants.getWaitPort();
 			if(waitPort>0) {
-				ServerSocket serverSocket = null;
+				// ServerSocket stopWaitingServerSocket = null;
+				waittingStopCmdServerTerminating();
 				try {
-					serverSocket = new ServerSocket(waitPort);
+					stopWaitingServerSocket = new ServerSocket(waitPort);
 					while (!isExitApp) {
-						final Socket socket = serverSocket.accept();
-						new Thread(new Runnable() { @Override public void run() {
+						final Socket socket = stopWaitingServerSocket.accept();
+						new Thread(() -> {
 							try {
 								socket.getOutputStream().write("Hello~. What are you want to now?\n".getBytes());
 								socket.getOutputStream().flush();
@@ -298,19 +376,35 @@ public abstract class RestTestBase {
 									}
 								}
 							} catch (Exception e) {
-								
+								e.printStackTrace();
 							} finally {
 								if(socket!=null) try { socket.close(); } catch (IOException e) {}
-							}}}).start();
+							}
+						}).start();
 					}
+//				} catch (SocketException e) {
+//					// "socket closed" 인 경우는 여러 테스트 수행에 따른 인위적 closed이므로 종료하지 않는다.
+//					if(e.getMessage().equalsIgnoreCase("socket closed")) {
+//						
+//					} else {
+//						
+//					}
 				} catch (IOException e) {
-					e.printStackTrace();
-					if(serverSocket!=null) try {serverSocket.close();} catch (IOException e1) {}
-					System.exit(-1);
+					// "socket closed" 인 경우는 여러 테스트 수행에 따른 인위적 closed이므로 종료하지 않는다.
+					if(e.getMessage().equalsIgnoreCase("socket closed")) {
+						System.out.println("\n\n========================================================================\n\t다음 테스트 종료대기를 위해 현재 종료대기 소켓이 닫혔습니다.\n========================================================================\n");
+					} else {
+						e.printStackTrace();
+						if(stopWaitingServerSocket!=null) try {stopWaitingServerSocket.close();} catch (IOException e1) {}
+						System.exit(-1);
+					}
 				}finally {
-					try {if(serverSocket!=null)serverSocket.close();} catch (IOException e) {}
+					try {if(stopWaitingServerSocket!=null)stopWaitingServerSocket.close();} catch (IOException e) {}
 				}
-			}}
+				if(isExitApp) {
+					System.exit(-2);
+				}
+			}
 		}).start();
 	}
 
@@ -319,14 +413,14 @@ public abstract class RestTestBase {
 		if(waitPort>0) {
 			final Socket socket = new Socket(addr, waitPort);
 			try {
-				Thread readThread = new Thread(new Runnable() { @Override public void run() {
+				Thread readThread = new Thread(() -> {
 					byte[] bts = new byte[4096];
 					int readed;
 					try {
 						while ((readed=socket.getInputStream().read(bts))>0) {
 							System.out.println(new String(Arrays.copyOf(bts, readed), charset).trim());
 						}
-					} catch (IOException e) { }}});
+					} catch (IOException e) { }});
 				readThread.start();
 				socket.getOutputStream().write("exit".getBytes());
 				socket.getOutputStream().flush();
@@ -363,13 +457,18 @@ public abstract class RestTestBase {
 				.append("동시(중복-Active) 호출 개수 : ").append(isLoopRelayTest ? totalMultiConnector : this.constants.getExecutorCorePoolSize()).append("\n")
 				.append("한 개 호출그룹에 속한 호출 개수 : ").append(loopTestCount).append("\n")
 				.append("정상 종료시 계획된 전체 호출 개수 : ").append(isLoopRelayTest ? (totalMultiConnector * totalTestCount * loopTestCount) : (this.constants.getExecutorCorePoolSize() * totalTestCount * loopTestCount)).append("\n")
-				.append("---------- 아래 카운트는 그룹별이 아닌 각 호출에 대한 카운트 임. -------------").append("\n")
+				.append("\n")
+				.append("---------- 아래 카운트는 그룹별이 아닌 전체 호출에 대한 카운트 임. -------------").append("\n")
+				.append("\n")
+				.append("사용 Thread 개수 : ").append(countOfThead.size()).append("\n")
 				.append("전체 테스트 개수 : ").append(totalProcessCount).append("\n")
 				.append("호출 테스트 성공 : ").append(totalSuccCount).append("\n")
 				.append("호출 테스트 실패 : ").append(errorCount).append("\n")
 				.append("시스템 에러 개수 : ").append(systemErrorCount).append("\n")
-				.append("성공과 실패는 테스터의 단순 호출에 대한 실패카운트이며, 성공내에서 실패된 서비스는 별도 로그를 체크해야 합니다.").append("\n")
-				.append("사용된 Thread 개수 : ").append(countOfThead.size()).append("\n\n")
+				.append("실패 시 재확인 수행된 호출 개수 : ").append(totalProcessCount - loopTestCount*totalTestCount).append(" (마이너스 값은 중간에러에 의한 종료 시 수행되지 못한 개수)").append("\n")
+				.append("   (에러 시 별도수행 설정된 경우 수행되며, 기본수행은 성공으로 셋팅하고 별도수행은 호출결과에 따른다)").append("\n")
+				.append("   (성공과 실패는 테스터의 단순 호출에 대한 실패카운트이며, 성공내에서 실패된 서비스는 별도 로그를 체크해야 합니다.)").append("\n")
+				.append("\n")
 				.append("테스트 시작시각 : ").append(dateTimeFormat.format(new Date(startTestTime))).append("\n")
 				.append("테스트 종료시각 : ").append(dateTimeFormat.format(new Date(endTestTime))).append("\n")
 				.append("수행 시각(MS) : ").append(String.format("%,d(ms)", timeGap)).append("\n")
@@ -385,10 +484,14 @@ public abstract class RestTestBase {
 
 	protected void endOfWork() {
 		
-		if(isExitApp)
-			System.out.println("\n\n======================================================================================\n사용자의 요청에 의해 테스트가 중지 중 입니다. 잠시만 기다려 주십시오.");
-		else
-			System.out.println("\n\n======================================================================================\n테스트가 마무리 되었습니다. 결과를 정리중이니 잡시만 기다려 주십시오.");
+		if(isExitApp) {
+			if(constants.isStopFailed() && errorCount>0) {
+				System.out.println("\n\n======================================================================================\n계획된 테스트 중 에러가 발생하여 테스트가 중지 중 입니다. 잠시만 기다려 주십시오.");
+			} else {
+				System.out.println("\n\n======================================================================================\n사용자의 요청에 의해 테스트가 중지 중 입니다. 잠시만 기다려 주십시오.");
+			}
+		} else
+			System.out.println("\n\n======================================================================================\n테스트가 마무리 되었습니다. 결과를 정리중이니 잠시만 기다려 주십시오.");
 		
 		try {
 			for (int i = 0; i < 70; i++) {
@@ -407,7 +510,7 @@ public abstract class RestTestBase {
 		
 		try {addLogFlush(result);logFileClose();} catch (IOException e) {}
 		System.out.println(result);
-		System.exit(0);
+		// System.exit(0); // 연속 테스트를 위하여  remark.
 	}
 
 	protected String getValFromKey(final String key, final String fromBody) {
@@ -447,6 +550,15 @@ public abstract class RestTestBase {
 	}
 
 
+	protected synchronized static void addTheadCount(String threadName) {
+		Long threadCount = countOfThead.get(threadName);
+		if(threadCount==null) {
+			countOfThead.put(threadName, 1L);
+		} else {
+			countOfThead.put(threadName, ++threadCount);
+		}
+	}
+
 	protected static synchronized long addTotalCount() {
 		return ++totalProcessCount;
 	}
@@ -457,14 +569,36 @@ public abstract class RestTestBase {
 		++errorCount;
 	}
 
-	protected static Map<String, Object> switchResult(String resultStr) {
+	public static Map<String, Object> switchResult(String jsonStr) {
 		try {
-			return objectMapper.readValue(resultStr, Map.class);
+			return objectMapper.readValue(jsonStr, Map.class);
 		} catch (IOException | NullPointerException e) {
 			return null;
 		}
 	}
-	protected static String switchParams(String params, List<Map<String, Object>> preSqlResult, Map<String, Object> map, Map<String, Object> mapFirstCall, Constants constants, Map<String, Object> beforeResultMap) {
+	public static Map<String, Object> switchResult(String xmlStr, Charset charset) {
+		try {
+			XmlMapper xmlMapper = new XmlMapper();
+			JsonNode jsonNode = xmlMapper.readTree(xmlStr.getBytes(charset));
+			String json = objectMapper.writeValueAsString(jsonNode);
+			return switchResult(json);
+		} catch ( IOException e) {
+			return switchResult(xmlStr);
+		}
+	}
+	/**
+	 * 이게 가장 느리다. 개선해줘야 한다.
+	 * @param postFix
+	 * @param testIndex
+	 * @param params
+	 * @param preSqlResult
+	 * @param mapKeepData
+	 * @param mapFirstCall
+	 * @param constants
+	 * @param beforeResultMap
+	 * @return
+	 */
+	protected static String switchParams(String postFix, long testIndex, String params, List<Map<String, Object>> preSqlResult, Map<String, Object> mapKeepData, Map<String, Object> mapFirstCall, Constants constants, Map<String, Object> beforeResultMap) {
 		if(StringUtils.isEmpty(params))
 			return "";
 		int start = params.indexOf("${");
@@ -477,30 +611,30 @@ public abstract class RestTestBase {
 			String switchKey = params.substring(start+2, end);
 			try {
 				if(StringUtils.isEmpty(switchKey)/* || StringUtils.isEmpty(map) && StringUtils.isEmpty(mapFirstCall)*/) {
-					String switchValue = inputUserPopup("지정된 키값이 잘못되었습니다. 수정하고 다시시도하거나, 직접 입력해주세요", "${"+switchKey+"} 에 대응하는 값을 입력해주세요.", "");
+					String switchValue = inputUserPopup(String.format("[%d]번째 테스트[%s] : 지정된 키값이 잘못되었습니다. 수정하고 다시시도하거나, 직접 입력해주세요", testIndex, constants.getTestNameInfo(testIndex, postFix)), "${"+switchKey+"} 에 대응하는 값을 입력해주세요.", "");
 					if(!StringUtils.isEmpty(switchValue)) {
-						if(StringUtils.isEmpty(map)) map = new HashMap<String, Object>();
-						map.put(switchKey, switchValue);
+						if(!StringUtils.isEmpty(mapKeepData)) mapKeepData.put(switchKey, switchValue);
+						constants.getProperties().setProperty("_user.input.value."+switchKey, switchValue);
 					}
-					return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+					return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
 					// return switchParams(new StringBuffer().append(before).append("\"Not supported values...\"").append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
 				} else {
 					if(!StringUtils.isEmpty(preSqlResult) && preSqlResult.size()>0) {
 						String switchValue = constants.findFromList(switchKey, preSqlResult);
 						if(switchValue!=null)
-							return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+							return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
 					}
-					if(!StringUtils.isEmpty(map) && !StringUtils.isEmpty(map.get(switchKey))) {
+					if(!StringUtils.isEmpty(mapKeepData) && !StringUtils.isEmpty(mapKeepData.get(switchKey))) {
 						// String switchValue = objectMapper.writeValueAsString(map.get(switchKey));
-						String switchValue = map.get(switchKey) + "";
-						return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
-					} else if(!StringUtils.isEmpty(map)) {
-						for (String key : map.keySet()) {
-							if(map.get(key) instanceof Map) {
-								if(!StringUtils.isEmpty(((Map) map.get(key)).get(switchKey) + "") && !(((Map) map.get(key)).get(switchKey) + "").equals("0") && !(((Map) map.get(key)).get(switchKey) + "").equals("null")) {
+						String switchValue = mapKeepData.get(switchKey) + "";
+						return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
+					} else if(!StringUtils.isEmpty(mapKeepData)) {
+						for (String key : mapKeepData.keySet()) {
+							if(mapKeepData.get(key) instanceof Map) {
+								if(!StringUtils.isEmpty(((Map) mapKeepData.get(key)).get(switchKey) + "") && !(((Map) mapKeepData.get(key)).get(switchKey) + "").equals("0") && !(((Map) mapKeepData.get(key)).get(switchKey) + "").equals("null")) {
 									// String switchValue = objectMapper.writeValueAsString(((Map) map.get(key)).get(switchKey));
-									String switchValue = ((Map) map.get(key)).get(switchKey) + "";
-									return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+									String switchValue = ((Map) mapKeepData.get(key)).get(switchKey) + "";
+									return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
 								}
 							}
 						}
@@ -508,14 +642,14 @@ public abstract class RestTestBase {
 					if(!StringUtils.isEmpty(mapFirstCall) && !StringUtils.isEmpty(mapFirstCall.get(switchKey))) {
 						// String switchValue = objectMapper.writeValueAsString(mapFirstCall.get(switchKey));
 						String switchValue = mapFirstCall.get(switchKey) + "";
-						return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+						return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
 					} else if(!StringUtils.isEmpty(mapFirstCall)) {
 						for (String key : mapFirstCall.keySet()) {
 							if(mapFirstCall.get(key) instanceof Map) {
 								if(!StringUtils.isEmpty(((Map) mapFirstCall.get(key)).get(switchKey))) {
 									// String switchValue = objectMapper.writeValueAsString(((Map) mapFirstCall.get(key)).get(switchKey));
 									String switchValue = ((Map) mapFirstCall.get(key)).get(switchKey) + "";
-									return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+									return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
 								}
 							}
 						}
@@ -523,7 +657,7 @@ public abstract class RestTestBase {
 					if(!StringUtils.isEmpty(beforeResultMap) && !StringUtils.isEmpty(beforeResultMap.get(switchKey))) {
 						// String switchValue = objectMapper.writeValueAsString(beforeResultMap.get(switchKey));
 						String switchValue = beforeResultMap.get(switchKey) + "";
-						return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+						return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
 					} else if(!StringUtils.isEmpty(beforeResultMap)) {
 						try {
 							for (String key : beforeResultMap.keySet()) {
@@ -531,36 +665,53 @@ public abstract class RestTestBase {
 									if(!StringUtils.isEmpty(((Map) beforeResultMap.get(key)).get(switchKey) + "") && !(((Map) beforeResultMap.get(key)).get(switchKey) + "").equals("0") && !(((Map) beforeResultMap.get(key)).get(switchKey) + "").equals("null")) {
 										// String switchValue = objectMapper.writeValueAsString(((Map) beforeResultMap.get(key)).get(switchKey));
 										String switchValue = ((Map) beforeResultMap.get(key)).get(switchKey)+"";
-										return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+										return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
 									}
 								}
 							}
 						}catch (Exception e) {e.printStackTrace();}
 						String switchValue = constants.findFromMap(switchKey, beforeResultMap);
 						if(switchValue!=null) {
-							return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+							return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
 						}
 					}
+
 					// Properties에서는 한번만 찾는다.
-					if(!StringUtils.isEmpty(constants.getPropertyValue(switchKey))) {
-						// String switchValue = objectMapper.writeValueAsString(constants.getPropertyValue(switchKey));
-						String switchValue = constants.getPropertyValue(switchKey);
-						return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
-					}
-					String switchValue = inputUserPopup("통신결과에서 값을 찾을 수 없습니다. 직접 입력해주세요", "${"+switchKey+"} 에 대응하는 값을 입력해주세요.", "");
+					String switchValue = constants.getPropertyValue(switchKey);
 					if(!StringUtils.isEmpty(switchValue)) {
-						if(StringUtils.isEmpty(map)) map = new HashMap<String, Object>();
-						map.put(switchKey, switchValue);
+						return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
 					}
-					return switchParams(new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+					switchValue = constants.getProperties().getProperty("_user.input.value."+switchKey);
+					if(!StringUtils.isEmpty(switchValue)) {
+						return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
+					}
+					switchValue = inputUserPopup(String.format("[%d]번째 테스트[%s] : 통신결과에서 값을 찾을 수 없습니다. 직접 입력해주세요", testIndex, constants.getTestNameInfo(testIndex, postFix)), "${"+switchKey+"} 에 대응하는 값을 입력해주세요.", "");
+					if(!StringUtils.isEmpty(switchValue)) {
+						if(!StringUtils.isEmpty(mapKeepData)) mapKeepData.put(switchKey, switchValue);
+						constants.getProperties().setProperty("_user.input.value."+switchKey, switchValue);
+//						if(StringUtils.isEmpty(map)) map = new HashMap<String, Object>();
+//						map.put(switchKey, switchValue);
+						return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
+					}
+					// 멀티처리 시 다른곳에서 입력받은것이 있을 수 있으므로 다시한번 처리한다.
+					switchValue = constants.getProperties().getProperty("_user.input.value."+switchKey, "");
+					return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
 				}
 			}catch (Exception e) {
-				String switchValue = inputUserPopup("통신결과에서 값을 찾을 수 없습니다. 직접 입력해주세요", "${"+switchKey+"} 에 대응하는 값을 입력해주세요.", "\"Not convert Object to String cause [");
+				String switchValue = constants.getProperties().getProperty("_user.input.value."+switchKey);
 				if(!StringUtils.isEmpty(switchValue)) {
-					if(StringUtils.isEmpty(map)) map = new HashMap<String, Object>();
-					map.put(switchKey, switchValue);
+					return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
 				}
-				return switchParams(new StringBuffer().append(before).append(switchValue).append(e.getMessage()).append("]\"").append(after).toString(), preSqlResult, map, mapFirstCall, constants, beforeResultMap);
+				switchValue = inputUserPopup(String.format("[%d]번째 테스트[%s] : 통신결과에서 값을 찾을 수 없습니다. 직접 입력해주세요", testIndex, constants.getTestNameInfo(testIndex, postFix)), "${"+switchKey+"} 에 대응하는 값을 입력해주세요.", "\"Not convert Object to String cause [");
+				if(!StringUtils.isEmpty(switchValue)) {
+					if(!StringUtils.isEmpty(mapKeepData)) mapKeepData.put(switchKey, switchValue);
+					constants.getProperties().setProperty("_user.input.value."+switchKey, switchValue);
+//					if(StringUtils.isEmpty(map)) map = new HashMap<String, Object>();
+//					map.put(switchKey, switchValue);
+					return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
+				}// 멀티처리 시 다른곳에서 입력받은것이 있을 수 있으므로 다시한번 처리한다.
+				switchValue = constants.getProperties().getProperty("_user.input.value."+switchKey, "");
+				return switchParams(postFix, testIndex, new StringBuffer().append(before).append(switchValue).append(e.getMessage()).append("]\"").append(after).toString(), preSqlResult, mapKeepData, mapFirstCall, constants, beforeResultMap);
 			}
 		}
 		return params;
@@ -569,24 +720,19 @@ public abstract class RestTestBase {
 	public static String inputUserPopup(String title, String message, String defValue) {
 		final String[] result = new String[] {""};
 		
-		Thread threadUiUx = new Thread(new Runnable() {
-			@Override public void run() {
-				result[0] = JOptionPane.showInputDialog(null, message, title, JOptionPane.INFORMATION_MESSAGE);
-			}
+		Thread threadUiUx = new Thread(() -> {
+			result[0] = JOptionPane.showInputDialog(null, message, title, JOptionPane.INFORMATION_MESSAGE);
 		});
-		Thread threadCmd = new Thread(new Runnable() {
-			@Override public void run() {
-				BufferedReader br = null;
-				try {
-					System.out.println("\n"+title);
-					System.out.print(message + "\n >>> : ");
-					br = new BufferedReader(new InputStreamReader(System.in));
-					result[0] = br.readLine();
-					// br.reset();
-				} catch (IOException e) {} finally {
-					// if(br!=null) try {br.close();} catch (IOException e) {}
-				}
-				
+		Thread threadCmd = new Thread(() -> {
+			BufferedReader br = null;
+			try {
+				System.out.println("\n"+title);
+				System.out.print(message + "\n >>> : ");
+				br = new BufferedReader(new InputStreamReader(System.in));
+				result[0] = br.readLine();
+				// br.reset();
+			} catch (IOException e) {} finally {
+				// if(br!=null) try {br.close();} catch (IOException e) {}
 			}
 		});
 		
@@ -607,6 +753,43 @@ public abstract class RestTestBase {
 	}
 
 	public static void main(String[] args) throws Exception {
+		
+		String switchKey = "yyyyMMddHHmmssSSS-23";
+		switchKey = "yyyyMMddHHmmssSSS+111";
+		switchKey += "2019 YYYY DD hh-";
+		String addPattern = "^[0-9GyMdkHmsSEDFwWahKzZYuXL]{1,100}[+]{1}[1-9]{1}[0-9]{0,18}$";
+		String delPattern = "^[0-9GyMdkHmsSEDFwWahKzZYuXL]{1,100}[-]{1}[1-9]{1}[0-9]{0,18}$";
+		System.out.println("ADD : " + switchKey.matches(addPattern));
+		System.out.println("DEL : " + switchKey.matches(delPattern));
+		String[] testArr = switchKey.split("[-]",2);
+		testArr = switchKey.split("[+]",2);
+
+		long addValue = 0;
+		if(switchKey.matches(addPattern)) {
+			addValue = Long.parseLong(switchKey.split("[+]",2)[1].trim());
+			switchKey = switchKey.split("[+]",2)[0];
+		}
+		long delValue = 0;
+		if(switchKey.matches(delPattern)) {
+			delValue = Long.parseLong(switchKey.split("[-]",2)[1].trim());
+			switchKey = switchKey.split("[-]",2)[0];
+		}
+		String switchValue = new SimpleDateFormat(switchKey).format(new Date());
+		System.out.println(switchValue);
+		System.out.println("ADD : " + addValue);
+		System.out.println("DEL : " + delValue);
+		if(switchValue.matches("^[1-9]{1}[0-9]{0,18}$")) {
+			if(addValue>0) {
+				switchValue=""+(Long.parseLong(switchValue)+addValue);
+				System.out.println("DO ADD : " + switchValue);
+			}
+			if(delValue>0) {
+				switchValue=""+(Long.parseLong(switchValue)-delValue);
+				System.out.println("DO DEL : " + switchValue);
+			}
+		}
+		System.out.println(switchValue);
+		System.exit(0);
 		
 		Date date = new Date("Thu Aug 06 2020 14:46:51 GMT+0900 (sadfaㄴㅁㅇㄹdㅁㄴㅇㄹ)");
 		System.out.println(date);
@@ -631,6 +814,6 @@ public abstract class RestTestBase {
 		list.add(subMap);
 		list.add(subMap);
 		map.put("listResult", list);
-		System.out.println(switchParams(test, null, map, null, null, null));
+		System.out.println(switchParams("", 0, test, null, map, null, null, null));
 	}
 }

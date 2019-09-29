@@ -1,11 +1,7 @@
 package kr.co.itcall.test;
 
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -14,14 +10,13 @@ import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
 import javax.swing.JFileChooser;
-import javax.swing.JOptionPane;
 
-import org.apache.commons.codec.net.URLCodec;
 import org.springframework.beans.factory.config.PropertiesFactoryBean;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpHeaders;
@@ -30,6 +25,7 @@ import org.springframework.http.MediaType;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class Constants {
@@ -139,6 +135,34 @@ public class Constants {
 
 				// Properties 정보Value가 파일로 존재할 경우 해당 파일정보를 Property Value로 치환해준다.
 				properties = loadPropertiesCheckRelateFiles(properties);
+				for (Object key : properties.keySet()) {
+					if(StringUtils.isEmpty(key))
+						continue;
+					Object value = properties.getProperty(key.toString(), "");
+					if(StringUtils.isEmpty(value))
+						continue;
+					int pos = 0;
+					while (true) {
+						int start = value.toString().indexOf("${", pos);
+						if(start>0 && value.toString().charAt(start-1)=='\\')
+							start = -1;
+						int end = value.toString().indexOf("}", start);
+						if(-1<start && start<end) {
+							String before = value.toString().substring(0, start);
+							String after = value.toString().substring(end+1);
+							String switchKey = value.toString().substring(start+2, end);
+							String switchValue = properties.getProperty(switchKey);
+							if(!StringUtils.isEmpty(switchValue)) {
+								value = new StringBuffer().append(before).append(switchValue).append(after).toString();
+								pos = before.length()+switchValue.length();
+							} else {
+								pos = end;
+							}
+							continue;
+						}
+						break;
+					}
+				}
 				return properties;
 //			} catch (Exception e) {
 //				log.error("(Re)Loaded UnitInfoProperties on ERROR fileName[{}], errorMessage[{}], errorCause[{}] {}", propsFile.getName(), e.getMessage(), e.getCause(), e);
@@ -156,6 +180,8 @@ public class Constants {
 	 */
 	private Properties loadPropertiesCheckRelateFiles(final Properties properties) {
 		for (Object key : properties.keySet()) {
+			if(key.toString().matches("test.[0-9]*.file.[0-9]*.path"))
+				continue;
 			try {
 				StringBuffer sb = new StringBuffer();
 				BufferedReader br = new BufferedReader(new FileReader(properties.getProperty((String) key)));
@@ -198,6 +224,9 @@ public class Constants {
 			if(br!=null) try {br.close();} catch (IOException e) {}
 		}
 		return properties;
+	}
+	public Properties getProperties() {
+		return this.properties;
 	}
 	public String getPropertyValue(String key) {return getPropertyValue(key, "");}
 	public String getPropertyValue(String key, String defValue) {
@@ -257,8 +286,16 @@ public class Constants {
 		return this.getPropertyValue("log.path", "./log/");
 	}
 
+	public String getProtocols() {
+		return this.getPropertyValue("log.test.support.protocols", "");
+	}
+
 	public boolean isLogging() {
 		return "YESTRUE".contains(this.properties.getProperty("log.logging.yn", "N").toUpperCase());
+	}
+
+	public boolean isStopFailed() {
+		return "YESTRUE".contains(this.properties.getProperty("test.fail.isStop", "N").toUpperCase());
 	}
 
 	public long getTotalTestCount() {
@@ -281,7 +318,10 @@ public class Constants {
 		return this.getPropertyValue("login.password");
 	}
 	public String getLoginPageUrl() {
-		return this.getPropertyValue("login.page.url");
+		// return this.getPropertyValue("login.page.url");
+		return RestTestBase.switchParams("", 0
+				, switchParams(0, this.getPropertyValue("login.page.url"), null)
+				, null, null, null, this, null);
 	}
 	public String getLoginPageParams() {
 		return switchParams(this.getPropertyValue("login.page.params"), null);
@@ -314,13 +354,16 @@ public class Constants {
 		return this.getPropertyValue("login.rsa.Public.end");
 	}
 	public String getRsaUrl() {
-		return this.getPropertyValue("login.rsa.url");
+		return RestTestBase.switchParams("", 0
+				, switchParams(0, this.getPropertyValue("login.rsa.url"), null)
+				, null, null, null, this, null);
+		// return this.getPropertyValue("login.rsa.url");
 	}
 	public String getRsaParams() {
 		return this.getPropertyValue("login.rsa.params");
 	}
-	public HttpHeaders getRsaHeaderInfo(HttpHeaders httpHeaders) {
-		return getHeaderInfoFromProperties("login.rsa.header.", httpHeaders);
+	public HttpHeaders getRsaHeaderInfo(HttpHeaders httpHeaders, Map<String, Object> beforeResultMap) {
+		return getHeaderInfoFromProperties("login.rsa.header.", httpHeaders, beforeResultMap);
 	}
 	public HttpMethod getRsaHttpMethod() {
 		return HttpMethod.valueOf(this.getPropertyValue("login.rsa.method", "POST"));
@@ -335,7 +378,10 @@ public class Constants {
 		return this.getPropertyValue("login.rsa.public.key");
 	}
 	public String getLoginProcessUrl() {
-		return this.getPropertyValue("login.process.url");
+		return RestTestBase.switchParams("", 0
+				, switchParams(0, this.getPropertyValue("login.process.url"), null)
+				, null, null, null, this, null);
+		// return this.getPropertyValue("login.process.url");
 	}
 	public String getLoginProcessParams() {
 		return switchParams(this.getPropertyValue("login.process.params"), null);
@@ -347,38 +393,51 @@ public class Constants {
 	public long getSleepTimeBeforeGroup() {
 		return Long.parseLong(this.properties.getProperty("test.group.sleep", "0"));
 	}
-	public long getSleepTimeBeforeTest(long testNum) {
-		return Long.parseLong(this.properties.getProperty("test."+testNum+".sleep", "0"));
+	public long getSleepTimeBeforeTest(long testNum, String postFix) {
+		return Long.parseLong(this.properties.getProperty("test."+testNum+postFix+".sleep", "0"));
 	}
-	public HttpMethod getTestHttpMethod(long testNum) {
-		return HttpMethod.valueOf(this.properties.getProperty("test."+testNum+".method", "POST"));
+	public HttpMethod getTestHttpMethod(long testNum, String postFix) {
+		return HttpMethod.valueOf(this.properties.getProperty("test."+testNum+postFix+".method", "POST"));
 	}
-	public HttpHeaders getTestHeaderInfo(long testNum, HttpHeaders httpHeaders) {
-		return getHeaderInfoFromProperties("test."+testNum+".header.", httpHeaders);
+	public HttpHeaders getTestHeaderInfo(long testNum, String postFix, HttpHeaders httpHeaders, Map<String, Object> beforeResultMap) {
+		return getHeaderInfoFromProperties("test."+testNum+postFix+".header.", httpHeaders, beforeResultMap);
 	}
-	public String getTestNameInfo(long testNum) {
-		return this.getPropertyValue("test."+testNum+".name", "Test-"+testNum);
+	public String getTestNameInfo(long testNum, String postFix) {
+		return this.getPropertyValue("test."+testNum+postFix+".name", "Test-"+testNum+postFix);
+	}
+	public String getTestResultLike(long testNum, String postFix, Map<String, Object> mapKeepData, Map<String, Object> mapFirstCall, Map<String, Object> beforeResultMap) {
+		return RestTestBase.switchParams(postFix, testNum
+				, switchParams((int)testNum, this.getPropertyValue("test."+testNum+postFix+".result", ""), null)
+				, null, mapKeepData, mapFirstCall, this, beforeResultMap);
 	}
 	public String getTestUrlInfo(long testNum) {
-		return this.getPropertyValue("test."+testNum+".url");
+		return  this.getPropertyValue("test."+testNum+".url", null);
 	}
-	public String getTestParamsInfo(long testNum, Map<String, Object> beforeResultMap) {
-		return switchParams(this.getPropertyValue("test."+testNum+".params"), beforeResultMap);
+	public String getTestUrlInfo(long testNum, String postFix, Map<String, Object> mapKeepData, Map<String, Object> mapFirstCall, Map<String, Object> beforeResultMap) {
+		return RestTestBase.switchParams(postFix, testNum
+				, switchParams((int)testNum, this.getPropertyValue("test."+testNum+postFix+".url"), null)
+				, null, mapKeepData, mapFirstCall, this, beforeResultMap);
 	}
-	public boolean isKeepSession(long testNum) {
-		return "YESTRUE".contains(this.properties.getProperty("test."+testNum+".keep.session.yn", "N").toUpperCase());
+	public boolean isExistFailedProcess(long testNum, String postFix) {
+		return "YESTRUE".contains(this.properties.getProperty("test."+testNum+postFix+".failed.yn","N").toUpperCase());
+	}
+	public String getTestParamsInfo(long testNum, String postFix, Map<String, Object> beforeResultMap) {
+		return switchParams(this.getPropertyValue("test."+testNum+postFix+".params"), beforeResultMap);
+	}
+	public boolean isKeepSession(long testNum, String postFix) {
+		return "YESTRUE".contains(this.properties.getProperty("test."+testNum+postFix+".keep.session.yn", "N").toUpperCase());
 	}
 	public int getWaitPort() {
 		return Integer.parseInt(this.properties.getProperty("test.wait.port", "9991"));
 	}
 
-	public HttpHeaders getLoginPageHeaderInfo(HttpHeaders httpHeaders) {
-		return getHeaderInfoFromProperties("login.page.header.", httpHeaders);
+	public HttpHeaders getLoginPageHeaderInfo(HttpHeaders httpHeaders, Map<String, Object> beforeResultMap) {
+		return getHeaderInfoFromProperties("login.page.header.", httpHeaders, beforeResultMap);
 	}
-	public HttpHeaders getLoginProcessHeaderInfo(HttpHeaders httpHeaders) {
-		return getHeaderInfoFromProperties("login.process.header.", httpHeaders);
+	public HttpHeaders getLoginProcessHeaderInfo(HttpHeaders httpHeaders, Map<String, Object> beforeResultMap) {
+		return getHeaderInfoFromProperties("login.process.header.", httpHeaders, beforeResultMap);
 	}
-	public HttpHeaders getHeaderInfoFromProperties(String baseKey, HttpHeaders httpHeaders) {
+	public HttpHeaders getHeaderInfoFromProperties(String baseKey, HttpHeaders httpHeaders, Map<String, Object> beforeResultMap) {
 		HttpHeaders outputHeaders = new HttpHeaders();
 		if(httpHeaders!=null) {
 			for (String header: httpHeaders.keySet()) {
@@ -391,6 +450,7 @@ public class Constants {
 				break;
 			outputHeaders.remove(key); // 키가 존재하면 원래 해더의 키는 무조건 삭제한다.
 			String value = this.properties.getProperty(baseKey+i+".value");
+			value = switchParams(value, beforeResultMap);
 			if(value!=null) {
 				outputHeaders.add(key, value); // value가 존재하면 무조건 Overwirte한다. 공백이면, 삭제하는 효과.
 				if(value.startsWith("multipart/form-data")) {
@@ -416,49 +476,45 @@ public class Constants {
 				
 				final String[] result = new String[] {""};
 				
-				Thread threadUiUx = new Thread(new Runnable() {
-					@Override public void run() {
-						int len = path.lastIndexOf("/");
-						if(len<=0)len=path.length();
-						JFileChooser chooser = new JFileChooser(path.substring(0, len));
-						chooser.setApproveButtonText("Key["+key+"]에 맵핑되어 업로드할 파일을 지정해주세요.");
-						chooser.setDialogTitle("업로드 파일 선택 : Err[" + path + "]");
-						chooser.setToolTipText("지정된 파일["+path+"]은 정상적이지 않습니다.");
-						chooser.setApproveButtonToolTipText("취소하면 해당 파일만 제거하고 수행됩니다.");
-						chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+				Thread threadUiUx = new Thread(()-> {
+					int len = path.lastIndexOf("/");
+					if(len<=0)len=path.length();
+					JFileChooser chooser = new JFileChooser(path.substring(0, len));
+					chooser.setApproveButtonText("Key["+key+"]에 맵핑되어 업로드할 파일을 지정해주세요.");
+					chooser.setDialogTitle("업로드 파일 선택 : Err[" + path + "]");
+					chooser.setToolTipText("지정된 파일["+path+"]은 정상적이지 않습니다.");
+					chooser.setApproveButtonToolTipText("취소하면 해당 파일만 제거하고 수행됩니다.");
+					chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
 //						chooser.addActionListener(new ActionListener() {@Override
 //							public void actionPerformed(ActionEvent evt) {
 //								System.out.println(evt.getActionCommand());
 //							}
 //						});
-						// System.out.println("파일저장 다이얼로그에서 업로드할 파일명을 선택해 주세요...");
-						if(chooser.showSaveDialog(null)==0) {
-							arrFile[0] = new FileSystemResource(chooser.getSelectedFile());
-							if(arrFile[0].isFile() && arrFile[0].isReadable()) {
-								body.add(key, arrFile[0]);
-							}
+					// System.out.println("파일저장 다이얼로그에서 업로드할 파일명을 선택해 주세요...");
+					if(chooser.showSaveDialog(null)==0) {
+						arrFile[0] = new FileSystemResource(chooser.getSelectedFile());
+						if(arrFile[0].isFile() && arrFile[0].isReadable()) {
+							body.add(key, arrFile[0]);
 						}
-						result[0] = "UI/UX로 파일지정이 완료되었습니다.";
 					}
+					result[0] = "UI/UX로 파일지정이 완료되었습니다.";
 				});
-				Thread threadCmd = new Thread(new Runnable() {
-					@Override public void run() {
-						BufferedReader br = null;
-						try {
-							System.out.println("업로드 파일 선택 : Err[" + path + "]");
-							System.out.print("Key["+key+"]에 맵핑되어 업로드할 파일을 지정해주세요." + "\n >>> : ");
-							br = new BufferedReader(new InputStreamReader(System.in));
-							arrFile[0] = new FileSystemResource(br.readLine());
-							// br.reset();
-							if(arrFile[0].isFile() && arrFile[0].isReadable()) {
-								body.add(key, arrFile[0]);
-							}
-						} catch (IOException e) {} finally {
-							// if(br!=null) try {br.close();} catch (IOException e) {}
-							result[0] = "Console로 파일지정이 완료되었습니다.";
+				Thread threadCmd = new Thread(() -> {
+					BufferedReader br = null;
+					try {
+						System.out.println("업로드 파일 선택 : Err[" + path + "]");
+						System.out.print("Key["+key+"]에 맵핑되어 업로드할 파일을 지정해주세요." + "\n >>> : ");
+						br = new BufferedReader(new InputStreamReader(System.in));
+						arrFile[0] = new FileSystemResource(br.readLine());
+						// br.reset();
+						if(arrFile[0].isFile() && arrFile[0].isReadable()) {
+							body.add(key, arrFile[0]);
 						}
-						
+					} catch (IOException e) {} finally {
+						// if(br!=null) try {br.close();} catch (IOException e) {}
+						result[0] = "Console로 파일지정이 완료되었습니다.";
 					}
+					
 				});
 				
 				threadUiUx.start();
@@ -488,6 +544,9 @@ public class Constants {
 	public Charset getTestCharset() {
 		return Charset.forName(this.properties.getProperty("test.charset", "UTF-8"));
 	}
+	public Charset getTestCharset(long testNum, String postFix) {
+		return Charset.forName(this.properties.getProperty("test."+testNum+postFix+".charset", getTestCharset().name()));
+	}
 
 	public String switchParams(String params, Map<String, Object> beforeResultMap) {
 		return switchParams(0, params, beforeResultMap);
@@ -500,10 +559,28 @@ public class Constants {
 		if(-1<start && start<end) {
 			String before = params.substring(0, start);
 			String after = params.substring(end+1);
-			String switchKey = params.substring(start+2, end);
+			String switchKey = params.substring(start+2, end).trim();
+			long addValue = 0;
+			if(switchKey.matches("^[0-9GyMdkHmsSEDFwWahKzZYuXL]{1,19}[+]{1}[1-9]{1}[0-9]{0,18}$")) {
+				addValue = Long.parseLong(switchKey.split("[+]",2)[1].trim());
+				switchKey = switchKey.split("[+]",2)[0];
+			}
+			long delValue = 0;
+			if(switchKey.matches("^[0-9GyMdkHmsSEDFwWahKzZYuXL]{1,19}[-]{1}[1-9]{1}[0-9]{0,18}$")) {
+				delValue = Long.parseLong(switchKey.split("[-]",2)[1].trim());
+				switchKey = switchKey.split("[-]",2)[0];
+			}
 			try {
 				String switchValue = new SimpleDateFormat(switchKey).format(new Date());
-				return switchParams(end, new StringBuffer().append(before).append(switchValue).append(after).toString(), beforeResultMap);
+				if(switchValue.matches("^[1-9]{1}[0-9]{0,18}$")) {
+					if(addValue>0) {
+						switchValue=""+(Long.parseLong(switchValue)+addValue);
+					}
+					if(delValue>0) {
+						switchValue=""+(Long.parseLong(switchValue)-delValue);
+					}
+				}
+				return switchParams(before.length()+switchValue.length(), new StringBuffer().append(before).append(switchValue).append(after).toString(), beforeResultMap);
 			} catch (Exception e) {
 				Object switchValue = null;
 				if(!StringUtils.isEmpty(beforeResultMap) && !StringUtils.isEmpty(switchValue = beforeResultMap.get(switchKey))) {
@@ -592,6 +669,100 @@ public class Constants {
 
 	public void setObjectMapper(ObjectMapper objectMapper) {
 		this.objectMapper = objectMapper;
+	}
+
+	public boolean isExistValueForPreSqlResult(long index, String postFix, List<Map<String, Object>> preSqlResult) {
+		String key = getPropertyValue("test." + index + postFix + ".sql.key", null);
+		if(!StringUtils.isEmpty(key) && !StringUtils.isEmpty(preSqlResult) && !preSqlResult.isEmpty()) {
+			for (Map<String, Object> map : preSqlResult) {
+				if(!StringUtils.isEmpty(map) && !StringUtils.isEmpty(map.get(key))) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 키(test.[NUM].result.keep)에 값이 존재하면 해당 값의 결과를 mapKeepData에 보관한다.
+	 * Ex) test.0.result.keep=sessionUniqId,userNmByMasking
+	 * @param mapKeepData
+	 * @param postFix
+	 * @param index
+	 * @param result
+	 * @return 
+	 */
+	public Map<String, Object> addKeepDataToMap(Map<String, Object> mapKeepData, String postFix, long index, String resultStr) {
+		String[] keepDataKeys = this.properties.getProperty("test."+index+postFix+".result.keep", "").split(",");
+		for (String keepDataKey : keepDataKeys) {
+			if(StringUtils.isEmpty(keepDataKey))
+				continue;
+			Map<String, Object> result = RestTestBase.switchResult(resultStr, getTestCharset(index, postFix));
+			if(StringUtils.isEmpty(result))
+				continue;
+			String value = null;
+			value = getValueFromMap(keepDataKey, (Map<String, Object>) result);
+			if(!StringUtils.isEmpty(value)) {
+				if(StringUtils.isEmpty(mapKeepData)) {
+					mapKeepData = new HashMap<String, Object>();
+				}
+				mapKeepData.put(keepDataKey, value);
+			}
+		}
+		return mapKeepData;
+	}
+
+	public String getValueFromMap(String key, Map<String, Object> map) {
+		Object result = map.get(key);
+		if(!StringUtils.isEmpty(result)) {
+			if(result instanceof Map || result instanceof List) {
+				try {
+					return objectMapper.writeValueAsString(result);
+				} catch (JsonProcessingException e) {
+					e.printStackTrace();
+				}
+			}
+			return result.toString();
+		}
+		for (String eachKey : map.keySet()) {
+			result = map.get(eachKey);
+			if(StringUtils.isEmpty(result))
+				continue;
+			if(result instanceof Map) {
+				String value = getValueFromMap(key, (Map<String, Object>) result);
+				if(!StringUtils.isEmpty(value)) {
+					return value;
+				}
+			} else if(result instanceof List) {
+				for (Object listElement : (List<?>)result) {
+					if(!StringUtils.isEmpty(listElement) && listElement instanceof Map) {
+						String value = getValueFromMap(key, (Map<String, Object>) listElement);
+						if(!StringUtils.isEmpty(value)) {
+							return value;
+						}
+					}
+				}
+			} else if(result instanceof Object[]) {
+				for (Object element : (Object[])result) {
+					if(!StringUtils.isEmpty(element) && element instanceof Map) {
+						String value = getValueFromMap(key, (Map<String, Object>) element);
+						if(!StringUtils.isEmpty(value)) {
+							return value;
+						}
+					}
+				}
+//			} else if(result.getClass().isArray()) {
+//				for (Object element : (Object[])result) {
+//					if(!StringUtils.isEmpty(element) && element instanceof Map) {
+//						String value = getValueFromMap(key, (Map<String, Object>) element);
+//						if(!StringUtils.isEmpty(value)) {
+//							return value;
+//						}
+//					}
+//				}
+			}
+		}
+		return null;
 	}
 
 
