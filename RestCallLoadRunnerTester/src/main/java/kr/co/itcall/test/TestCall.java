@@ -821,12 +821,13 @@ public class TestCall extends RestTestBase {
 		// console.log(keptRow);
 		return keptRow;
 	};
-	public List<Map<String, Object>> getPreSqlResult(String postFix, long index, Map<String, Object> beforeResultMap, Map<String,Object> mapKeepData, Map<String,Object> resultMapFirstCall) {
+	public PreSqlInfo getPreSqlResult(String postFix, long index, Map<String, Object> beforeResultMap, Map<String,Object> mapKeepData, Map<String,Object> resultMapFirstCall) {
+		PreSqlInfo preSqlInfo = new PreSqlInfo();
 		List<Map<String, Object>> result = null;
 		String dbKey = constants.getPropertyValue("test."+index+postFix+".db");
 		String query = constants.getPropertyValue("test."+index+postFix+".query");
 		if(StringUtils.isEmpty(dbKey) || StringUtils.isEmpty(query))
-			return result;
+			return preSqlInfo;
 		String dbName   = constants.getPropertyValue(dbKey+".name");
 		String dbDriver = constants.getPropertyValue(dbKey+".driver");
 		String dbUrl    = constants.getPropertyValue(dbKey+".url");
@@ -836,11 +837,12 @@ public class TestCall extends RestTestBase {
 		PreparedStatement pstmt = null;
 		ResultSet rs = null;
 		try {
-			
+			preSqlInfo.setPreSqlQuery(query);
 			query = switchParams(postFix, index, constants.switchParams(0, query, beforeResultMap), null, mapKeepData, resultMapFirstCall, constants, beforeResultMap);
 			query = clearRemarkStr(query, "/*", "*/", 0);
 			query = clearRemarkStr(query, "//", null, 0);
 			query = clearRemarkStr(query, "--", null, 0);
+			preSqlInfo.setRealSqlQuery(query);
 			Class.forName(dbDriver);
 			conn = DriverManager.getConnection(dbUrl, dbUserId, dbPwd);
 			/************ 다중으로 입력되는 쿼리는 마지막 수행문만 취한다. ************/
@@ -857,7 +859,7 @@ public class TestCall extends RestTestBase {
 				}
 			}
 			if(StringUtils.isEmpty(rs)) {
-				return null;
+				return preSqlInfo;
 			}
 			ResultSetMetaData metaData = rs.getMetaData();
 			int sizeOfColumn = metaData.getColumnCount();
@@ -878,7 +880,8 @@ public class TestCall extends RestTestBase {
 			if(pstmt!=null)try {pstmt.close();} catch (SQLException e) {e.printStackTrace();}
 			if(conn!=null)try {conn.close();} catch (SQLException e) {e.printStackTrace();}
 		}
-		return result;
+		preSqlInfo.setPreSqlResult(result);
+		return preSqlInfo;
 	}
 
 	public static String encryptRsaBase64(String data, String publicKeyStr, Charset charset) throws NoSuchAlgorithmException, InvalidKeySpecException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {

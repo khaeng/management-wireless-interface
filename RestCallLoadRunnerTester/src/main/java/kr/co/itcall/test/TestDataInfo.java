@@ -29,7 +29,8 @@ public class TestDataInfo {
 	private HttpMethod method;
 	// private HttpHeaders httpHeaderParams;
 	private String params;
-	private List<Map<String, Object>> preSqlResult;
+	// private List<Map<String, Object>> preSqlResult;
+	private PreSqlInfo preSqlInfo;
 	private Map<String,Object> beforeResultMap;
 	private Map<String,Object> mapKeepData = new HashMap<String, Object>();
 	private Map<String,Object> resultMapFirstCall;
@@ -78,8 +79,8 @@ public class TestDataInfo {
 		threadName = Thread.currentThread().getName();
 		url = constants.getTestUrlInfo(index, postFix, mapKeepData, resultMapFirstCall, beforeResultMap);
 		method = constants.getTestHttpMethod(index, postFix);
-		preSqlResult = testCall.getPreSqlResult(postFix, index, beforeResultMap, mapKeepData, resultMapFirstCall);
-		params = TestCall.switchParams(postFix, index, constants.getTestParamsInfo(index, postFix, beforeResultMap), preSqlResult, mapKeepData, resultMapFirstCall, constants, beforeResultMap);
+		preSqlInfo = testCall.getPreSqlResult(postFix, index, beforeResultMap, mapKeepData, resultMapFirstCall);
+		params = TestCall.switchParams(postFix, index, constants.getTestParamsInfo(index, postFix, beforeResultMap), preSqlInfo.getPreSqlResult(), mapKeepData, resultMapFirstCall, constants, beforeResultMap);
 		sleepMs = constants.getSleepTimeBeforeTest(index, postFix);
 	}
 
@@ -187,12 +188,20 @@ public class TestDataInfo {
 		this.params = params;
 	}
 
-	public List<Map<String, Object>> getPreSqlResult() {
-		return preSqlResult;
+//	public List<Map<String, Object>> getPreSqlResult() {
+//		return preSqlResult;
+//	}
+//
+//	public void setPreSqlResult(List<Map<String, Object>> preSqlResult) {
+//		this.preSqlResult = preSqlResult;
+//	}
+	
+	public PreSqlInfo getPreSqlInfo() {
+		return preSqlInfo;
 	}
-
-	public void setPreSqlResult(List<Map<String, Object>> preSqlResult) {
-		this.preSqlResult = preSqlResult;
+	
+	public void setPreSqlInfo(PreSqlInfo preSqlInfo) {
+		this.preSqlInfo = preSqlInfo;
 	}
 
 	public Map<String, Object> getBeforeResultMap() {
@@ -253,7 +262,7 @@ public class TestDataInfo {
 	 * 즉, 없을경우 등록하는 업무를 여기서 처리한다.
 	 */
 	public boolean isExistValueForPreSqlResult() throws IOException {
-		boolean result = this.constants.isExistValueForPreSqlResult(index, postFix, preSqlResult);
+		boolean result = this.constants.isExistValueForPreSqlResult(index, postFix, preSqlInfo.getPreSqlResult());
 		if(result) {
 			TestCall.addSuccessCount();
 			this.log.append(String.format("%d : 성공[%d], 실패[%d] : Start[%s] | End[-cancel-] | Thread[%s] | Name[%s] | Url[%s] ||| 사전조건조회값[%s]이 존재하여 성공으로 처리하며, 수행하지는 않습니다. ||| 사전조건조회 쿼리결과를 다음인수로 전달합니다.\n"
@@ -263,7 +272,7 @@ public class TestDataInfo {
 				System.out.print(this.conLog.append(this.log.toString()).toString());
 			}
 			try {
-				this.result.append(Constants.objectMapper.writeValueAsString(preSqlResult));
+				this.result.append(Constants.objectMapper.writeValueAsString(preSqlInfo.getPreSqlResult()));
 				testCall.addLog("\t사전조회결과값 : " + this.result.toString() + "\n");
 				if(constants.isLogging() || totalTermDoneCount%printLogTerm==0) {
 					System.out.println(this.conLog.append("\t사전조회결과값 : ").append(this.result.toString()).toString());
@@ -313,10 +322,10 @@ public class TestDataInfo {
 		this.log.insert(0, "] : ").insert(0, TestCall.errorCount).insert(0, "], 실패[").insert(0, TestCall.totalSuccCount).insert(0, " : 성공[").insert(0, TestCall.addTotalCount())
 				.insert(this.log.indexOf("End")+4, TestCall.timeFormat.format(new Date()));
 		// 선행쿼리가 있으면 로그에 출력해준다.
-		if(!StringUtils.isEmpty(constants.getPropertyValue("test."+index+postFix+".query")) && !StringUtils.isEmpty(preSqlResult) && !preSqlResult.isEmpty()) {
+		if(!StringUtils.isEmpty(constants.getPropertyValue("test."+index+postFix+".query")) && !StringUtils.isEmpty(preSqlInfo.getPreSqlResult()) && !preSqlInfo.getPreSqlResult().isEmpty()) {
 			this.log.append("\n\tbefore Query : ").append(constants.getPropertyValue("test."+index+postFix+".query")).append("\n\tquery Result (다중쿼리는 마지막결과만 출력됨) : ");
 			try {
-				this.log.append(Constants.objectMapper.writeValueAsString(preSqlResult));
+				this.log.append(Constants.objectMapper.writeValueAsString(preSqlInfo.getPreSqlResult()));
 			}catch (JsonProcessingException e) {
 				this.log.append("Cannot Convert from ObjectMapper : error[").append(e.getMessage()).append(", ").append(e.getLocalizedMessage()).append(", ").append(e.getCause()).append("]");
 			}
@@ -331,8 +340,8 @@ public class TestDataInfo {
 			this.conLog.append(callReq);
 			callRes = callRes.length()>TestCall.MAX_LOG_PRINT_TO_CONSOLE?callRes.substring(0, TestCall.MAX_LOG_PRINT_TO_CONSOLE)+"...":callRes;
 			this.conLog.append(callRes);
-			if(!StringUtils.isEmpty(preSqlResult) && !preSqlResult.isEmpty()) {
-				this.conLog.append(" ||| 선행쿼리 조회 (다중 쿼리의 경우엔 마지막 수행쿼리만 출력됨) Count : " + preSqlResult.size());
+			if(!StringUtils.isEmpty(preSqlInfo.getPreSqlResult()) && !preSqlInfo.getPreSqlResult().isEmpty()) {
+				this.conLog.append(" ||| 선행쿼리 조회 (다중 쿼리의 경우엔 마지막 수행쿼리만 출력됨) Count : " + preSqlInfo.getPreSqlResult().size());
 			}
 			System.out.println(this.conLog.toString());
 		}
