@@ -34,7 +34,7 @@
 <!-- 		<spring.version>4.2.5.RELEASE</spring.version> -->
 <!-- 		<spring.version>4.3.8.RELEASE</spring.version> -->
 		<httpcomponents.version>4.5.9</httpcomponents.version> <!-- 4.5.3 -->
-		<jackson.fasterxml.version>2.9.9</jackson.fasterxml.version>
+		<jackson.fasterxml.version>2.10.1</jackson.fasterxml.version>
 		<jackson.codehaus.version>1.9.13</jackson.codehaus.version>
 		<mail.version>1.4.7</mail.version>
 	</properties>
