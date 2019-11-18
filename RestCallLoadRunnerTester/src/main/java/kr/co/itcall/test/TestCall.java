@@ -55,6 +55,7 @@ public class TestCall extends RestTestBase {
 	}
 
 	public static String choiceAndRunTestCaseConfFile(String inputUserData) throws IOException {
+		String testMultiCount = "";
 		String testFileName = "";
 		String log="";
 		BufferedReader br = null;
@@ -75,7 +76,7 @@ public class TestCall extends RestTestBase {
 //			}
 //		}
 		System.out.println("===========================================================================");
-		System.out.print  ("출력된 파일번호를 입력하시면 해당 테스트 파일로 테스트를 진행합니다.\n선택할 파일번호는 콤마(,)로 여러개 또는 하이픈(-)으로 범위 선택가능(중복사용불가)\n >>> : ");
+		System.out.print  ("출력된 파일번호를 입력하시면 해당 테스트 파일로 테스트를 진행합니다.\n선택할 파일번호는 콤마(,)로 여러개 또는 하이픈(-)으로 범위 선택가능(중복사용불가)\n입력라인 마지막에 *와 숫자 입력 시 선택된 전체 테스트를 지정한 숫자만큼 병렬실행.\n >>> : ");
 		if(StringUtils.isEmpty(inputUserData)) {
 			br = new BufferedReader(new InputStreamReader(System.in));
 			inputUserData = br.readLine().trim();
@@ -87,6 +88,13 @@ public class TestCall extends RestTestBase {
 			inputUserData = "1-" + testConfFiles.size();
 		}
 		int userSelectedIndex = -1;
+		
+		// 선택된 테스트(들)을 몇번 동시실행할지 여부(중복실행 개수)
+		if(inputUserData.split("[*]",2).length==2) {
+			testMultiCount = "*" + Integer.parseInt(inputUserData.split("[*]",2)[1].trim());
+			inputUserData = inputUserData.split("[*]",2)[0].trim();
+		}
+		
 		if(inputUserData.contains(",")) {
 			System.out.println("===========================================================================");
 			for (String selectedFileName : inputUserData.split(",")) {
@@ -97,7 +105,7 @@ public class TestCall extends RestTestBase {
 					throw new IOException("정상적인 파일을 선택하지 않았거나, 파일을 읽을 수 없습니다.[num:"+userSelectedIndex+", name:" + selectedFileName + "]");
 				}
 				log += userSelectedIndex + " : " + selectedFileName +"\n\t";
-				testFileName += selectedFileName +",";
+				testFileName += selectedFileName + testMultiCount +",";
 			}
 			testFileName = testFileName.substring(0, testFileName.lastIndexOf(","));
 			System.out.println("\t" + log + "\n::: " + inputUserData.split(",").length + "개의 파일들을 선택했습니다. 테스트를 진행합니다.");
@@ -113,13 +121,13 @@ public class TestCall extends RestTestBase {
 					throw new IOException("정상적인 파일을 선택하지 않았거나, 파일을 읽을 수 없습니다.[num:"+i+", name:" + selectedFileName + "]");
 				}
 				log += i + " : " + selectedFileName +"\n\t";
-				testFileName += selectedFileName +",";
+				testFileName += selectedFileName + testMultiCount +",";
 			}
 			testFileName = testFileName.substring(0, testFileName.lastIndexOf(","));
 			System.out.println("\t" + log + "\n::: " + (end-start+1) + "개의 파일들을 선택했습니다. 테스트를 진행합니다.");
 			System.out.println("===========================================================================");
 		} else {
-			userSelectedIndex = Integer.parseInt(inputUserData);
+			userSelectedIndex = Integer.parseInt(inputUserData.trim());
 			testFileName = testConfFiles.get(userSelectedIndex-1).getPath();
 			System.out.println("===========================================================================");
 			System.out.println("\t[" + testFileName + "] 파일을 선택했습니다. 테스트를 진행합니다.");
@@ -128,20 +136,28 @@ public class TestCall extends RestTestBase {
 			if(!choiceFile.canRead() || !choiceFile.isFile()) {
 				throw new IOException("정상적인 파일을 선택하지 않았거나, 파일을 읽을 수 없습니다.[" + testFileName + "]");
 			}
+			testFileName += testMultiCount;
 		}
 		return testFileName;
 	}
 
 	public static String runTestMain(String fileName) throws Exception {
+		int testMultiCount = 0;
+		// 선택된 테스트(들)을 몇번 동시실행할지 여부(중복실행 개수)
+		if(fileName.split("[*]",2).length==2) {
+			testMultiCount = Integer.parseInt(fileName.split("[*]",2)[1].trim());
+			fileName = fileName.split("[*]",2)[0].trim();
+		}
 		TestCall testCall = null;
-		testCall = new TestCall(new Constants(fileName));
-		testCall.runTest();
+		testCall = new TestCall(new Constants(fileName, testMultiCount));
+		testCall.runTest(testMultiCount);
 		if(testCall.isExitApp) {
 			throw new Exception("테스트 파일[" + fileName + "] 수행 중 에러/예상결과가 도출되지 않아 임의로 종료합니다.");
 		}
 		return "테스트 파일[" + fileName + "] : 성공";
 	}
 	public static void main(String[] args) {
+//		System.out.println("asdfsadf sdfasdf".replaceAll(" ", "+"));
 //		String queryData = "/*** 회원등록을 수행하기전에 BIZNARU.DB에 존재하는 회원정보를 삭제해야 정상적인 등록과정을 수행할 수 있다. ***/DELETE FROM MB_CUST_ACC_BAS WHERE ACC_ID = '${test.val.acc.id}' ; SELECT * FROM MB_CUST_ACC_BAS WHERE ACC_ID = '${test.val.acc.id}'";
 //		String result = clearRemarkStr(queryData, "/*", "*/", 0);
 //		System.out.println(result);
@@ -174,11 +190,11 @@ public class TestCall extends RestTestBase {
 				if(args.length>2)
 					hostAddr = args[2];
 				if(args!=null && args.length>1) {
-					new TestCall(new Constants(args[1])).stopTest(hostAddr);
+					new TestCall(new Constants(args[1], 0)).stopTest(hostAddr);
 				} else {
 					String[] callTargetList = choiceAndRunTestCaseConfFile(args.length>2?args[1]:"").split(",");
 					for (String callTarget : callTargetList) {
-						new TestCall(new Constants(callTarget)).stopTest(hostAddr);
+						new TestCall(new Constants(callTarget, 0)).stopTest(hostAddr);
 					}
 				}
 			}else {
@@ -210,9 +226,9 @@ public class TestCall extends RestTestBase {
 		return restTemplateInterceptor;
 	}
 
-	public void runTest() throws Exception {
+	public void runTest(int testMultiCount) throws Exception {
 		
-		initialize();
+		initialize(testMultiCount);
 		
 		String resultStr = "";
 		
@@ -585,7 +601,7 @@ public class TestCall extends RestTestBase {
 				// return response = processToCallUrl(postFix+".failed", index, httpHeaders, beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, mapFirstCall);
 				TestDataInfo failToCallDataInfo = new TestDataInfo(this, testDataInfo, testDataInfo.getPostFix()+".failed");
 				// testDataInfo.setPostFix(testDataInfo.getPostFix()+".failed");
-				return response = String.format("실패시 추가호출 postFix[%s], 응답 : %s", failToCallDataInfo.getPostFix(), processToCallUrl(failToCallDataInfo).getResult().toString()); // (postFix+".failed", index, httpHeaders, beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, mapFirstCall);
+				return response = String.format("::현재호출[%d%s] 실패시 추가호출 postFix[%s], 최종응답 : %s", index, postFix, failToCallDataInfo.getPostFix(), processToCallUrl(failToCallDataInfo).getResult().toString()); // (postFix+".failed", index, httpHeaders, beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, mapFirstCall);
 			}
 			
 			addErrorCount();
@@ -653,7 +669,7 @@ public class TestCall extends RestTestBase {
 				TestDataInfo failToCallDataInfo = new TestDataInfo(this, testDataInfo, testDataInfo.getPostFix()+".failed");
 				// testDataInfo.setPostFix(testDataInfo.getPostFix()+".failed");
 				// return response = processToCallUrl(failToCallDataInfo).getResult().toString(); // (postFix+".failed", index, httpHeaders, beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, mapFirstCall);
-				return response = String.format("실패시 추가호출 postFix[%s], 응답 : %s", failToCallDataInfo.getPostFix(), processToCallUrl(failToCallDataInfo).getResult().toString()); // (postFix+".failed", index, httpHeaders, beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, mapFirstCall);
+				return response = String.format("::현재호출[%d%s] 실패시 추가호출 postFix[%s], 최종응답 : %s", index, postFix, failToCallDataInfo.getPostFix(), processToCallUrl(failToCallDataInfo).getResult().toString()); // (postFix+".failed", index, httpHeaders, beforeResultMap, totalTermDoneCount, printLogTerm, mapKeepData, mapFirstCall);
 			}
 			
 			addErrorCount();
@@ -697,7 +713,7 @@ public class TestCall extends RestTestBase {
 			} else {
 				response = "Exception.ERROR for LOGIN ::: " + e.getMessage() + " | " + e;
 			}
-			throw new Exception(e);
+			throw new Exception(String.format("Result call error[%s], index[%d], url[%s|%s], params[%s]", e.getMessage(), index, httpMethod.name(), url, params), e);
 		}
 		return response;
 	}
@@ -828,6 +844,7 @@ public class TestCall extends RestTestBase {
 		String query = constants.getPropertyValue("test."+index+postFix+".query");
 		if(StringUtils.isEmpty(dbKey) || StringUtils.isEmpty(query))
 			return preSqlInfo;
+		preSqlInfo.setPreSqlQuery(query);
 		String dbName   = constants.getPropertyValue(dbKey+".name");
 		String dbDriver = constants.getPropertyValue(dbKey+".driver");
 		String dbUrl    = constants.getPropertyValue(dbKey+".url");
@@ -837,7 +854,7 @@ public class TestCall extends RestTestBase {
 		PreparedStatement pstmt = null;
 		ResultSet rs = null;
 		try {
-			preSqlInfo.setPreSqlQuery(query);
+			
 			query = switchParams(postFix, index, constants.switchParams(0, query, beforeResultMap), null, mapKeepData, resultMapFirstCall, constants, beforeResultMap);
 			query = clearRemarkStr(query, "/*", "*/", 0);
 			query = clearRemarkStr(query, "//", null, 0);
@@ -859,7 +876,7 @@ public class TestCall extends RestTestBase {
 				}
 			}
 			if(StringUtils.isEmpty(rs)) {
-				return preSqlInfo;
+				return null;
 			}
 			ResultSetMetaData metaData = rs.getMetaData();
 			int sizeOfColumn = metaData.getColumnCount();

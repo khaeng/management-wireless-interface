@@ -3,7 +3,6 @@ package kr.co.itcall.test;
 import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpHeaders;
@@ -29,8 +28,8 @@ public class TestDataInfo {
 	private HttpMethod method;
 	// private HttpHeaders httpHeaderParams;
 	private String params;
-	// private List<Map<String, Object>> preSqlResult;
 	private PreSqlInfo preSqlInfo;
+// 	private List<Map<String, Object>> preSqlResult;
 	private Map<String,Object> beforeResultMap;
 	private Map<String,Object> mapKeepData = new HashMap<String, Object>();
 	private Map<String,Object> resultMapFirstCall;
@@ -188,6 +187,14 @@ public class TestDataInfo {
 		this.params = params;
 	}
 
+	public PreSqlInfo getPreSqlInfo() {
+		return preSqlInfo;
+	}
+
+	public void setPreSqlInfo(PreSqlInfo preSqlInfo) {
+		this.preSqlInfo = preSqlInfo;
+	}
+
 //	public List<Map<String, Object>> getPreSqlResult() {
 //		return preSqlResult;
 //	}
@@ -195,14 +202,6 @@ public class TestDataInfo {
 //	public void setPreSqlResult(List<Map<String, Object>> preSqlResult) {
 //		this.preSqlResult = preSqlResult;
 //	}
-	
-	public PreSqlInfo getPreSqlInfo() {
-		return preSqlInfo;
-	}
-	
-	public void setPreSqlInfo(PreSqlInfo preSqlInfo) {
-		this.preSqlInfo = preSqlInfo;
-	}
 
 	public Map<String, Object> getBeforeResultMap() {
 		return beforeResultMap;
@@ -294,7 +293,7 @@ public class TestDataInfo {
 		 * 로그인 유지 여부에 따라서 testCall.getHttpHeaders()를 사용할지 말지 프로퍼티.키로 받아 처리한다. (keep.session.yn과 비슷한 역할)
 		 **********/
 		HttpHeaders httpHeaders = constants.getTestHeaderInfo(index, postFix, testCall.getHttpHeaders(), beforeResultMap);
-		this.log.append("Start[").append(TestCall.timeFormat.format(new Date())).append("] | End[] | ").append("Thread[").append(threadName).append("] | Name[").append(testName).append("] | Url[").append(url).append("]\n\t요청 Params[").append(params).append("]\n\t응답 ");
+		this.log.append("Start[").append(TestCall.timeFormat.format(new Date())).append("] | End[] | ").append("Thread[").append(threadName).append("] | Name[").append(testName).append("] | Idx[").append(index).append(postFix).append("] | Url[").append(url).append("]\n\t요청 Params[").append(params).append("]\n\t응답 ");
 		if(constants.isKeepSession(index, postFix)) {
 			RestTemplateInterceptor restTemplateInterceptor = this.testCall.getRestTemplateInterceptor();
 			if(restTemplateInterceptor==null) {
@@ -322,8 +321,8 @@ public class TestDataInfo {
 		this.log.insert(0, "] : ").insert(0, TestCall.errorCount).insert(0, "], 실패[").insert(0, TestCall.totalSuccCount).insert(0, " : 성공[").insert(0, TestCall.addTotalCount())
 				.insert(this.log.indexOf("End")+4, TestCall.timeFormat.format(new Date()));
 		// 선행쿼리가 있으면 로그에 출력해준다.
-		if(!StringUtils.isEmpty(constants.getPropertyValue("test."+index+postFix+".query")) && !StringUtils.isEmpty(preSqlInfo.getPreSqlResult()) && !preSqlInfo.getPreSqlResult().isEmpty()) {
-			this.log.append("\n\tbefore Query : ").append(constants.getPropertyValue("test."+index+postFix+".query")).append("\n\tquery Result (다중쿼리는 마지막결과만 출력됨) : ");
+		if(!StringUtils.isEmpty(preSqlInfo.getRealSqlQuery()) && !StringUtils.isEmpty(preSqlInfo.getPreSqlResult()) && !preSqlInfo.getPreSqlResult().isEmpty()) {
+			this.log.append("\n\tbefore Query : ").append(preSqlInfo.getRealSqlQuery()).append("\n\tquery Result (다중쿼리는 마지막결과만 출력됨) : ");
 			try {
 				this.log.append(Constants.objectMapper.writeValueAsString(preSqlInfo.getPreSqlResult()));
 			}catch (JsonProcessingException e) {

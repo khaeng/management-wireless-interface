@@ -50,14 +50,20 @@ public class Constants {
 
 	private String propertiesFileName = BASE_PROPERTIES_FILE_NAME;
 
-	public Constants(String propertiesFile) throws IOException {
+	public Constants(String propertiesFile, int testMultiCount) throws IOException {
 		if(StringUtils.isEmpty(propertiesFile)) {
 			this.properties = readProperties(new File(BASE_PROPERTIES_FILE_NAME));
 		} else {
 			this.propertiesFileName = propertiesFile;
 			this.properties = readProperties(new File(propertiesFile));
 		}
-		this.executorQueueCapacity = (this.executorMaxPoolSize = (this.executorCorePoolSize = getTotalMultiConnector()) * 2) * 100;
+		if(testMultiCount>0) {
+			this.executorCorePoolSize = testMultiCount;
+		} else {
+			this.executorCorePoolSize = this.getTotalMultiConnector();
+		}
+		this.executorMaxPoolSize = this.executorCorePoolSize * 2;
+		this.executorQueueCapacity = this.executorMaxPoolSize * 100;
 	}
 
 	public String getPropertiesFileName() {

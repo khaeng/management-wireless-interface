@@ -106,7 +106,7 @@ public abstract class RestTestBase {
 		this.constants.setObjectMapper(objectMapper);
 	}
 
-	protected void initialize() throws IOException {
+	protected void initialize(int testMultiCount) throws IOException {
 
 		// 다중 처리를 위해서 static 변수들은 초기화 한다.
 		// isExitApp = false;
@@ -137,7 +137,11 @@ public abstract class RestTestBase {
 		
 		isLoopRelayTest = this.constants.isLoopRelayTest();
 		totalTestCount = this.constants.getTotalTestCount();
-		totalMultiConnector = this.constants.getTotalMultiConnector();
+		if(testMultiCount>0) {
+			totalMultiConnector = testMultiCount;
+		} else {
+			totalMultiConnector = this.constants.getTotalMultiConnector();
+		}
 	}
 
 	public Executor getExecutor() {
