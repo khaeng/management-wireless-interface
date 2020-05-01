@@ -39,7 +39,7 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 	@Override
 	public void configure(WebSecurity web) throws Exception
 	{
-		web.ignoring().antMatchers("/favicon.ico", "/css/**", "/js/**", "/image/**", "/error/**", "/loginProcess", "/loginRedirect", "/loginCust", "/getRsaPublicInfo");
+		web.ignoring().antMatchers("/common/**", "/favicon.ico", "/css/**", "/js/**", "/image/**", "/error/**", "/loginProcess", "/loginRedirect", "/loginCust", "/getRsaPublicInfo");
 	}
 
 	@Override
@@ -47,7 +47,7 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 		int sessionDuplicatedMaxCount = sessionDuplicatedMaxCountByCmd>0 ? sessionDuplicatedMaxCountByCmd : this.sessionDuplicatedMaxCount;
 
 		http.authorizeRequests()
-				.antMatchers("/css/**", "/js/**", "/image/**", "/loginProcess", "/loginRedirect", "/loginCust", "/getRsaPublicInfo").permitAll()
+				.antMatchers("/common/**", "/css/**", "/js/**", "/image/**", "/loginProcess", "/loginRedirect", "/loginCust", "/getRsaPublicInfo").permitAll()
 				.antMatchers("/login", "/loginCust").permitAll()
 				.antMatchers("/api/root/**").hasRole("ROOT")
 				.antMatchers("/api/admin/**").hasAnyRole("ROOT", "ADMIN")
