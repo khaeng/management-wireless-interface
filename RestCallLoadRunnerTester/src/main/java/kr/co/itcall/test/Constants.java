@@ -153,11 +153,12 @@ public class Constants {
 						if(start>0 && value.toString().charAt(start-1)=='\\')
 							start = -1;
 						int end = value.toString().indexOf("}", start);
+						String switchValue = "";
 						if(-1<start && start<end) {
 							String before = value.toString().substring(0, start);
 							String after = value.toString().substring(end+1);
 							String switchKey = value.toString().substring(start+2, end);
-							String switchValue = properties.getProperty(switchKey);
+							switchValue = properties.getProperty(switchKey);
 							if(!StringUtils.isEmpty(switchValue)) {
 								value = new StringBuffer().append(before).append(switchValue).append(after).toString();
 								pos = before.length()+switchValue.length();
@@ -166,6 +167,12 @@ public class Constants {
 							}
 							continue;
 						}
+						/***********************************************************************
+						 * 원래는 여기서 치환해줘야 하는데 변수명으로 그대로 놔둔다. 왜냐하면 사전통신에 의해서 
+						 * 신규로 얻는 값이 있을수있기 때문에 파일로드시 모두 치환해버리면 이후 신규 값은 사용하지 못한다.
+						if(!StringUtils.isEmpty(switchValue))
+							properties.setProperty(key.toString(), switchValue);
+						***********************************************************************/
 						break;
 					}
 				}
@@ -256,6 +263,12 @@ public class Constants {
 		if(StringUtils.isEmpty(value)) {
 			return defValue;
 		}
+		/******************************************************************************************
+		 * 데이터를 파라메터로 사용할 경우 UrlEncoding한 문자열이 들어올 수 있으므로 UrlDecoding을 할지 말지 결정해야 한다.
+		 * Params에 경우는 필요할 수 있지만, Json 또는 Body로 직접 데이터를 전송할때는 통 데이터여야 한다.
+		 ******************************************************************************************/
+		return value;
+		/******************************************************************************************
 		try {
 			StringBuffer sb = new StringBuffer();
 			String keepValue = "";
@@ -286,6 +299,7 @@ public class Constants {
 		} catch (UnsupportedEncodingException e) {
 			return value;
 		}
+		 ******************************************************************************************/
 	}
 	
 	public String getLogPath() {
@@ -368,11 +382,17 @@ public class Constants {
 	public String getRsaParams() {
 		return this.getPropertyValue("login.rsa.params");
 	}
-	public HttpHeaders getRsaHeaderInfo(HttpHeaders httpHeaders, Map<String, Object> beforeResultMap) {
-		return getHeaderInfoFromProperties("login.rsa.header.", httpHeaders, beforeResultMap);
+	public HttpHeaders getRsaHeaderInfo(HttpHeaders httpHeaders, Map<String, Object> beforeResultMap, Map<String,Object> mapKeepData) {
+		return getHeaderInfoFromProperties("login.rsa.header.", httpHeaders, beforeResultMap, mapKeepData);
+	}
+	public HttpMethod getLoginPageHttpMethod() {
+		return HttpMethod.valueOf(this.getPropertyValue("login.page.method", "POST"));
 	}
 	public HttpMethod getRsaHttpMethod() {
 		return HttpMethod.valueOf(this.getPropertyValue("login.rsa.method", "POST"));
+	}
+	public HttpMethod getLoginProcessHttpMethod() {
+		return HttpMethod.valueOf(this.getPropertyValue("login.process.method", "POST"));
 	}
 	public String getRsaModuleKey() {
 		return this.getPropertyValue("login.rsa.module.key");
@@ -405,8 +425,8 @@ public class Constants {
 	public HttpMethod getTestHttpMethod(long testNum, String postFix) {
 		return HttpMethod.valueOf(this.properties.getProperty("test."+testNum+postFix+".method", "POST"));
 	}
-	public HttpHeaders getTestHeaderInfo(long testNum, String postFix, HttpHeaders httpHeaders, Map<String, Object> beforeResultMap) {
-		return getHeaderInfoFromProperties("test."+testNum+postFix+".header.", httpHeaders, beforeResultMap);
+	public HttpHeaders getTestHeaderInfo(long testNum, String postFix, HttpHeaders httpHeaders, Map<String, Object> beforeResultMap, Map<String,Object> mapKeepData) {
+		return getHeaderInfoFromProperties("test."+testNum+postFix+".header.", httpHeaders, beforeResultMap, mapKeepData);
 	}
 	public String getTestNameInfo(long testNum, String postFix) {
 		return this.getPropertyValue("test."+testNum+postFix+".name", "Test-"+testNum+postFix);
@@ -437,13 +457,13 @@ public class Constants {
 		return Integer.parseInt(this.properties.getProperty("test.wait.port", "9991"));
 	}
 
-	public HttpHeaders getLoginPageHeaderInfo(HttpHeaders httpHeaders, Map<String, Object> beforeResultMap) {
-		return getHeaderInfoFromProperties("login.page.header.", httpHeaders, beforeResultMap);
+	public HttpHeaders getLoginPageHeaderInfo(HttpHeaders httpHeaders, Map<String, Object> beforeResultMap, Map<String,Object> mapKeepData) {
+		return getHeaderInfoFromProperties("login.page.header.", httpHeaders, beforeResultMap, mapKeepData);
 	}
-	public HttpHeaders getLoginProcessHeaderInfo(HttpHeaders httpHeaders, Map<String, Object> beforeResultMap) {
-		return getHeaderInfoFromProperties("login.process.header.", httpHeaders, beforeResultMap);
+	public HttpHeaders getLoginProcessHeaderInfo(HttpHeaders httpHeaders, Map<String, Object> beforeResultMap, Map<String,Object> mapKeepData) {
+		return getHeaderInfoFromProperties("login.process.header.", httpHeaders, beforeResultMap, mapKeepData);
 	}
-	public HttpHeaders getHeaderInfoFromProperties(String baseKey, HttpHeaders httpHeaders, Map<String, Object> beforeResultMap) {
+	public HttpHeaders getHeaderInfoFromProperties(String baseKey, HttpHeaders httpHeaders, Map<String, Object> beforeResultMap, Map<String,Object> mapKeepData) {
 		HttpHeaders outputHeaders = new HttpHeaders();
 		if(httpHeaders!=null) {
 			for (String header: httpHeaders.keySet()) {
@@ -457,6 +477,7 @@ public class Constants {
 			outputHeaders.remove(key); // 키가 존재하면 원래 해더의 키는 무조건 삭제한다.
 			String value = this.properties.getProperty(baseKey+i+".value");
 			value = switchParams(value, beforeResultMap);
+			value = RestTestBase.switchParams("", 0, value, null, mapKeepData, null, this, beforeResultMap); /*** ${...} 변수에 대해 기본적으로 Properties파일에서 치환할 수 있게 해준다. ***/
 			if(value!=null) {
 				outputHeaders.add(key, value); // value가 존재하면 무조건 Overwirte한다. 공백이면, 삭제하는 효과.
 				if(value.startsWith("multipart/form-data")) {
@@ -549,6 +570,9 @@ public class Constants {
 
 	public Charset getTestCharset() {
 		return Charset.forName(this.properties.getProperty("test.charset", "UTF-8"));
+	}
+	public Charset getTestCharset(String key) {
+		return Charset.forName(this.properties.getProperty(key, getTestCharset().name()));
 	}
 	public Charset getTestCharset(long testNum, String postFix) {
 		return Charset.forName(this.properties.getProperty("test."+testNum+postFix+".charset", getTestCharset().name()));

@@ -292,7 +292,7 @@ public class TestDataInfo {
 		/**********
 		 * 로그인 유지 여부에 따라서 testCall.getHttpHeaders()를 사용할지 말지 프로퍼티.키로 받아 처리한다. (keep.session.yn과 비슷한 역할)
 		 **********/
-		HttpHeaders httpHeaders = constants.getTestHeaderInfo(index, postFix, testCall.getHttpHeaders(), beforeResultMap);
+		HttpHeaders httpHeaders = constants.getTestHeaderInfo(index, postFix, testCall.getHttpHeaders(), beforeResultMap, mapKeepData);
 		this.log.append("Start[").append(TestCall.timeFormat.format(new Date())).append("] | End[] | ").append("Thread[").append(threadName).append("] | Name[").append(testName).append("] | Idx[").append(index).append(postFix).append("] | Url[").append(url).append("]\n\t요청 Params[").append(params).append("]\n\t응답 ");
 		if(constants.isKeepSession(index, postFix)) {
 			RestTemplateInterceptor restTemplateInterceptor = this.testCall.getRestTemplateInterceptor();
