@@ -239,17 +239,20 @@ public class TestCall extends RestTestBase {
 		// this.cookie = this.constants.getCookie();
 		String loginId = this.constants.getLoginId();
 		String loginPassword = this.constants.getPassword();
+		Map<String, Object> convertBeforeResultMap = null;
 		if(!StringUtils.isEmpty(loginId) && !StringUtils.isEmpty(loginPassword) && this.constants.isRsaLoginPassword()) {
 			String loginPageUrl = this.constants.getLoginPageUrl();
 			String loginParams = this.constants.getLoginPageParams();
-			HttpHeaders loginPageHttpHeaders = this.constants.getLoginPageHeaderInfo(this.httpHeaders, null);
+			HttpMethod loginPageHttpMethod = this.constants.getRsaHttpMethod();
+			HttpHeaders loginPageHttpHeaders = this.constants.getLoginPageHeaderInfo(this.httpHeaders, null, null); // 최초 호출이므로 사전호출정보나, 저장한정보가 없음.
 			restTemplateInterceptor = new RestTemplateInterceptor(loginPageHttpHeaders, this.constants.isLogging());
-			resultStr = loginTest(0, loginPageUrl, loginParams, restTemplateInterceptor, HttpMethod.GET, loginPageHttpHeaders);
+			resultStr = loginTest(0, loginPageUrl, loginParams, restTemplateInterceptor, loginPageHttpMethod, loginPageHttpHeaders);
 			this.httpHeaders = restTemplateInterceptor.getHttpHeaders();
 			// String result = runTest(loginPageUrl, "", preHttpHeaders, HttpMethod.GET);
 			System.out.println(resultStr);
 	//		<input type="hidden" id="RSAModulus"  value='<c:out value="${_RSAModules}"/>' />
 	//		<input type="hidden" id="RSAExponent" value='<c:out value="${_RSAExponent}"/>' />
+			convertBeforeResultMap = switchResult(resultStr, constants.getTestCharset("login.page.charset"));
 			String rsaModuleId = null;
 			String rsaExponentId = null;
 			String rsaPublicId = null;
@@ -265,8 +268,8 @@ public class TestCall extends RestTestBase {
 				rsaExponentId = this.constants.getRsaExponentKey();
 				rsaPublicId = this.constants.getRsaPublicKey();
 				String rsaParams = this.constants.getRsaParams();
-				rsaParams = switchParams("", -1, rsaParams, null, switchResult(resultStr), null, this.constants, null); // 일차 수신데이터에서 변경.
-				HttpHeaders rsaHttpHeaders = this.constants.getRsaHeaderInfo(this.httpHeaders, switchResult(resultStr));
+				rsaParams = switchParams("", -1, rsaParams, null, convertBeforeResultMap, null, this.constants, null); // 일차 수신데이터에서 변경.
+				HttpHeaders rsaHttpHeaders = this.constants.getRsaHeaderInfo(this.httpHeaders, convertBeforeResultMap, null);
 				HttpMethod rsaHttpMethod = this.constants.getRsaHttpMethod();
 				if(restTemplateInterceptor==null) {
 					restTemplateInterceptor = new RestTemplateInterceptor(rsaHttpHeaders, this.constants.isLogging());
@@ -275,8 +278,9 @@ public class TestCall extends RestTestBase {
 				}
 				resultStr = loginTest(0, rsaUrl, rsaParams, restTemplateInterceptor, rsaHttpMethod, rsaHttpHeaders);
 				System.out.println(resultStr);
-				Map<String,Object> rsaResult = switchResult(resultStr);
+				Map<String,Object> rsaResult = switchResult(resultStr, constants.getTestCharset("login.rsa.charset")); // switchResult(resultStr);
 				if(!StringUtils.isEmpty(rsaResult)) {
+					convertBeforeResultMap.putAll(rsaResult);
 					publicKeyStr = !StringUtils.isEmpty(rsaResult.get(rsaPublicId))   ? (String)rsaResult.get(rsaPublicId)   : null ;
 					System.out.println("추출한 RSA_PUBLIC_KEY = " + publicKeyStr);
 					rsaModuleKey = !StringUtils.isEmpty(rsaResult.get(rsaModuleId))   ? (String)rsaResult.get(rsaModuleId)   : null ;
@@ -345,15 +349,16 @@ public class TestCall extends RestTestBase {
 			String loginProcessUrl = this.constants.getLoginProcessUrl();
 			String loginParams = this.constants.getLoginProcessParams(); // otpChkYn=N&userId=${login.id}&password=${login.password}
 			loginParams = loginParams.replaceFirst("[$]\\{login[.]id\\}", loginId).replaceFirst("[$]\\{login[.]password\\}", loginPassword);
-			loginParams = switchParams("", -1, loginParams, null, switchResult(resultStr), null, this.constants, null); // 일차 수신데이터에서 변경.
+			loginParams = switchParams("", -1, loginParams, null, convertBeforeResultMap, null, this.constants, convertBeforeResultMap); // 일차 수신데이터에서 변경.
 	//		RestTemplateInterceptor restTemplateInterceptor = new RestTemplateInterceptor(cookie);
-			HttpHeaders loginHttpHeaders = this.constants.getLoginProcessHeaderInfo(this.httpHeaders, switchResult(resultStr));
+			HttpHeaders loginHttpHeaders = this.constants.getLoginProcessHeaderInfo(this.httpHeaders, convertBeforeResultMap, convertBeforeResultMap);
+			HttpMethod loginProcessHttpMethod = this.constants.getLoginProcessHttpMethod();
 			if(restTemplateInterceptor==null) {
 				restTemplateInterceptor = new RestTemplateInterceptor(loginHttpHeaders, this.constants.isLogging());
 			} else {
 				restTemplateInterceptor.setHttpHeaders(loginHttpHeaders);
 			}
-			String loginResult = loginTest(0, loginProcessUrl, loginParams, restTemplateInterceptor, HttpMethod.POST, loginHttpHeaders);
+			String loginResult = loginTest(0, loginProcessUrl, loginParams, restTemplateInterceptor, loginProcessHttpMethod, loginHttpHeaders);
 			System.out.println(loginResult);
 	
 			this.httpHeaders = restTemplateInterceptor.getHttpHeaders();
