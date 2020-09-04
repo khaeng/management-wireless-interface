@@ -590,6 +590,9 @@ public class Constants {
 			String before = params.substring(0, start);
 			String after = params.substring(end+1);
 			String switchKey = params.substring(start+2, end).trim();
+			// 치환값 추가...
+			switchKey = switchKey.replaceAll("getTime[(][)]", String.valueOf(System.currentTimeMillis())); // getTime() 명령은 현재시각의 Milliseconds를 long형값을 치환한다.
+			
 			long addValue = 0;
 			if(switchKey.matches("^[0-9GyMdkHmsSEDFwWahKzZYuXL]{1,19}[+]{1}[1-9]{1}[0-9]{0,18}$")) {
 				addValue = Long.parseLong(switchKey.split("[+]",2)[1].trim());
