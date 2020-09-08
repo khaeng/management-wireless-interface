@@ -70,7 +70,8 @@ public abstract class RestTestBase {
 	public static Map<String, Long> countOfThead;
 	private static ServerSocket stopWaitingServerSocket;
 
-	public static final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyyMMdd.HHmmss.SSS");
+	public static final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyyMMddHHmmss.SSS");
+	public static final SimpleDateFormat dateTimeViewFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 	public static final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
 	public static final int MAX_LOOP_AND_HEADER_COUNT = 100;
 
@@ -86,6 +87,7 @@ public abstract class RestTestBase {
 	protected static boolean isLoopRelayTest;
 	protected static int loopTestCount;
 	protected static int totalMultiConnector;
+	protected static int multiTestFileCount = 1;
 	protected static ObjectMapper objectMapper;
 
 	private RestTemplate[] arrRestTemplateForRestClient;
@@ -469,12 +471,12 @@ public abstract class RestTestBase {
 				.append("호출 테스트 성공 : ").append(totalSuccCount).append("\n")
 				.append("호출 테스트 실패 : ").append(errorCount).append("\n")
 				.append("시스템 에러 개수 : ").append(systemErrorCount).append("\n")
-				.append("실패 시 재확인 수행된 호출 개수 : ").append(totalProcessCount - loopTestCount*totalTestCount).append(" (마이너스 값은 중간에러에 의한 종료 시 수행되지 못한 개수)").append("\n")
+				.append("실패 시 재확인 수행된 호출 개수 : ").append(totalProcessCount - (isLoopRelayTest ? (totalMultiConnector * totalTestCount * loopTestCount) : (this.constants.getExecutorCorePoolSize() * totalTestCount * loopTestCount))).append(" (마이너스 값은 중간에러에 의한 종료 시 수행되지 못한 개수)").append("\n")
 				.append("   (에러 시 별도수행 설정된 경우 수행되며, 기본수행은 성공으로 셋팅하고 별도수행은 호출결과에 따른다)").append("\n")
 				.append("   (성공과 실패는 테스터의 단순 호출에 대한 실패카운트이며, 성공내에서 실패된 서비스는 별도 로그를 체크해야 합니다.)").append("\n")
 				.append("\n")
-				.append("테스트 시작시각 : ").append(dateTimeFormat.format(new Date(startTestTime))).append("\n")
-				.append("테스트 종료시각 : ").append(dateTimeFormat.format(new Date(endTestTime))).append("\n")
+				.append("테스트 시작시각 : ").append(dateTimeViewFormat.format(new Date(startTestTime))).append("\n")
+				.append("테스트 종료시각 : ").append(dateTimeViewFormat.format(new Date(endTestTime))).append("\n")
 				.append("수행 시각(MS) : ").append(String.format("%,d(ms)", timeGap)).append("\n")
 				.append("수행 시각(TM) : ").append(String.format("%02d:%02d:%02d.%03d", (timeGap/(60*60*1000))%24, (timeGap/(60*1000))%60, (timeGap/(1000))%60, timeGap%1000)).append("\n")
 				.append("초당 처리개수(TPS) : ").append(String.format("%,.2f(Tps)", (float)totalProcessCount/((endTestTime - startTestTime)/1000))).append("\n")
@@ -722,6 +724,10 @@ public abstract class RestTestBase {
 	}
 
 	public static String inputUserPopup(String title, String message, String defValue) {
+		if(multiTestFileCount>1) {
+			System.out.println(String.format("☆★☆★☆★☆★☆★ 다중테스트이므로 사용자입력은 받지않습니다. 맵핑된 데이터가 없습니다. ::: 타이틀[%s], 메시지[%s]", title, message));
+			return "";
+		}
 		final String[] result = new String[] {""};
 		
 		Thread threadUiUx = new Thread(() -> {

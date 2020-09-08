@@ -49,6 +49,7 @@ import org.springframework.web.client.RestClientResponseException;
 public class TestCall extends RestTestBase {
 
 	private static final String resultStrFirstCall = null;
+	private static boolean isFailedToStopInMulti = true;
 
 	public TestCall(Constants constants) throws IOException {
 		super(constants);
@@ -76,7 +77,7 @@ public class TestCall extends RestTestBase {
 //			}
 //		}
 		System.out.println("===========================================================================");
-		System.out.print  ("출력된 파일번호를 입력하시면 해당 테스트 파일로 테스트를 진행합니다.\n선택할 파일번호는 콤마(,)로 여러개 또는 하이픈(-)으로 범위 선택가능(중복사용불가)\n입력라인 마지막에 *와 숫자 입력 시 선택된 전체 테스트를 지정한 숫자만큼 병렬실행.\n >>> : ");
+		System.out.print  ("출력된 파일번호를 입력하시면 해당 테스트 파일로 테스트를 진행합니다.\n선택할 파일번호는 콤마(,) / And(&) 또는 하이픈(-)으로 범위 선택가능(중복으로 사용불가)\n콤마(,)와 하이픈(-)은 순차실행하며, And(&)는 병렬(동시)실행합니다.\n### 입력라인 마지막에 *와 숫자 입력 시 선택된 전체 테스트를 지정한 숫자만큼 병렬(동시)실행합니다.\n >>> : ");
 		if(StringUtils.isEmpty(inputUserData)) {
 			br = new BufferedReader(new InputStreamReader(System.in));
 			inputUserData = br.readLine().trim();
@@ -95,9 +96,9 @@ public class TestCall extends RestTestBase {
 			inputUserData = inputUserData.split("[*]",2)[0].trim();
 		}
 		
-		if(inputUserData.contains(",")) {
+		if(inputUserData.contains("&")) { // 다중선택을 병렬(동시)실행한다.
 			System.out.println("===========================================================================");
-			for (String selectedFileName : inputUserData.split(",")) {
+			for (String selectedFileName : inputUserData.split("&")) {
 				userSelectedIndex = Integer.parseInt(selectedFileName.trim());
 				selectedFileName = testConfFiles.get(userSelectedIndex-1).getPath();
 				File choiceFile = new File(selectedFileName);
@@ -105,11 +106,26 @@ public class TestCall extends RestTestBase {
 					throw new IOException("정상적인 파일을 선택하지 않았거나, 파일을 읽을 수 없습니다.[num:"+userSelectedIndex+", name:" + selectedFileName + "]");
 				}
 				log += userSelectedIndex + " : " + selectedFileName +"\n\t";
-				testFileName += selectedFileName + testMultiCount +",";
+				testFileName += selectedFileName + testMultiCount +"&";
 			}
-			testFileName = testFileName.substring(0, testFileName.lastIndexOf(","));
-			System.out.println("\t" + log + "\n::: " + inputUserData.split(",").length + "개의 파일들을 선택했습니다. 테스트를 진행합니다.");
+			testFileName = testFileName.substring(0, testFileName.lastIndexOf("&"));
+			System.out.println("\t" + log + "\n::: " + inputUserData.split("&").length + "개의 파일들을 동시실행(&)으로 선택했습니다. 테스트를 진행합니다.");
 			System.out.println("===========================================================================");
+		} else if(inputUserData.contains(",")) { // 다중선택을 순차적으로 실행한다.
+				System.out.println("===========================================================================");
+				for (String selectedFileName : inputUserData.split(",")) {
+					userSelectedIndex = Integer.parseInt(selectedFileName.trim());
+					selectedFileName = testConfFiles.get(userSelectedIndex-1).getPath();
+					File choiceFile = new File(selectedFileName);
+					if(!choiceFile.canRead() || !choiceFile.isFile()) {
+						throw new IOException("정상적인 파일을 선택하지 않았거나, 파일을 읽을 수 없습니다.[num:"+userSelectedIndex+", name:" + selectedFileName + "]");
+					}
+					log += userSelectedIndex + " : " + selectedFileName +"\n\t";
+					testFileName += selectedFileName + testMultiCount +",";
+				}
+				testFileName = testFileName.substring(0, testFileName.lastIndexOf(","));
+				System.out.println("\t" + log + "\n::: " + inputUserData.split(",").length + "개의 파일들을 순차실행(,)으로 선택했습니다. 테스트를 진행합니다.");
+				System.out.println("===========================================================================");
 		} else if(inputUserData.contains("-")) {
 			System.out.println("===========================================================================");
 			int start = Integer.parseInt(inputUserData.split("-", 2)[0].trim());
@@ -143,20 +159,92 @@ public class TestCall extends RestTestBase {
 
 	public static String runTestMain(String fileName) throws Exception {
 		int testMultiCount = 0;
-		// 선택된 테스트(들)을 몇번 동시실행할지 여부(중복실행 개수)
-		if(fileName.split("[*]",2).length==2) {
-			testMultiCount = Integer.parseInt(fileName.split("[*]",2)[1].trim());
-			fileName = fileName.split("[*]",2)[0].trim();
+		if(fileName.contains("&")) {
+			BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+			System.out.print("\n병렬테스트 중 하나라도 실패하면 테스트를 멈출까요?(기본값 N : Y/N) : ");
+			String inputUserData = br.readLine().trim();
+			isFailedToStopInMulti = (""+inputUserData).toUpperCase().contains("Y");
+			System.out.println("\n병렬테스트 중 실패 시 멈출지 여부는 " + isFailedToStopInMulti + " 입니다.");
+			br.close();
+			final List<String> fileList = Arrays.asList(fileName.split("&"));
+			multiTestFileCount = fileList.size();
+			final TestCall[] testCalls = new TestCall[multiTestFileCount];
+			final Thread[] threads = new Thread[multiTestFileCount];
+			long startTestTime = System.currentTimeMillis();
+			for (int i=0; i<multiTestFileCount; i++) {
+				final int testIndex = i;
+				// 선택된 테스트(들)을 몇번 동시실행할지 여부(중복실행 개수)
+				if(fileList.get(testIndex).split("[*]",2).length==2) {
+					testMultiCount = Integer.parseInt(fileList.get(testIndex).split("[*]",2)[1].trim());
+					fileList.set(testIndex, fileList.get(testIndex).split("[*]",2)[0].trim());
+				}
+				final int testMultiCountFinal = testMultiCount;
+				threads[i] = new Thread(() -> {
+					try {
+						testCalls[testIndex] = new TestCall(new Constants(fileList.get(testIndex), testMultiCountFinal, multiTestFileCount));
+						testCalls[testIndex].runTest(testMultiCountFinal);
+						if(testCalls[testIndex].isExitApp) {
+							throw new Exception("테스트 파일[" + fileList.get(testIndex) + "] 수행 중 에러/예상결과가 도출되지 않아 임의로 종료합니다.");
+						}
+					}catch (Exception e) {
+						e.printStackTrace();
+					}
+				});
+				threads[i].start();
+			}
+			for (Thread thread : threads) {
+				thread.join(); // 모든 테스트가 종료될때까지 기다린다.
+			}
+			long endTestTime = System.currentTimeMillis();
+			long timeGap = endTestTime - startTestTime;
+			StringBuffer result = new StringBuffer();
+			result.append("\n============================================================================\n")
+			.append("설정 테스트 개수 : ").append(totalTestCount * multiTestFileCount).append("\n")
+			.append("[순서 / 무작위] 호출 여부 : ").append(isLoopRelayTest ? "순차 처리" : "무작위 처리(동시호출과 Active프로세스는 2배차이남.)").append("\n")
+			.append("동일파일 내 동시(중복) 호출 개수 : ").append(totalMultiConnector).append("\n")
+			.append("다중선택한 Test파일 개수 : ").append(multiTestFileCount).append("\n")
+			.append("병렬(동시) 호출 전체 개수 : ").append(totalMultiConnector * multiTestFileCount).append("\n")
+			.append("한 개 호출그룹에 속한 호출 개수 : ").append(loopTestCount).append("\n")
+			.append("정상 종료시 계획된 전체 호출 개수 : ").append(totalMultiConnector * totalTestCount * loopTestCount * multiTestFileCount).append("\n")
+			.append("\n")
+			.append("---------- 아래 카운트는 그룹별이 아닌 전체 호출에 대한 카운트 임. -------------").append("\n")
+			.append("\n")
+			.append("사용 Thread 개수 : ").append(countOfThead.size() * multiTestFileCount).append("\n")
+			.append("전체 테스트 개수 : ").append(totalProcessCount).append("\n")
+			.append("호출 테스트 성공 : ").append(totalSuccCount).append("\n")
+			.append("호출 테스트 실패 : ").append(errorCount).append("\n")
+			.append("시스템 에러 개수 : ").append(systemErrorCount).append("\n")
+			.append("실패 시 재확인 수행된 호출 개수 : ").append(totalProcessCount - totalMultiConnector * totalTestCount * loopTestCount * multiTestFileCount).append(" (마이너스 값은 중간에러에 의한 종료 시 수행되지 못한 개수)").append("\n")
+			.append("   (에러 시 별도수행 설정된 경우 수행되며, 기본수행은 성공으로 셋팅하고 별도수행은 호출결과에 따른다)").append("\n")
+			.append("   (성공과 실패는 테스터의 단순 호출에 대한 실패카운트이며, 성공내에서 실패된 서비스는 별도 로그를 체크해야 합니다.)").append("\n")
+			.append("\n")
+			.append("테스트 시작시각 : ").append(dateTimeViewFormat.format(new Date(startTestTime))).append("\n")
+			.append("테스트 종료시각 : ").append(dateTimeViewFormat.format(new Date(endTestTime))).append("\n")
+			.append("수행 시각(MS) : ").append(String.format("%,d(ms)", timeGap)).append("\n")
+			.append("수행 시각(TM) : ").append(String.format("%02d:%02d:%02d.%03d", (timeGap/(60*60*1000))%24, (timeGap/(60*1000))%60, (timeGap/(1000))%60, timeGap%1000)).append("\n")
+			.append("초당 처리개수(TPS) : ").append(String.format("%,.2f(Tps)", (float)totalProcessCount/((endTestTime - startTestTime)/1000))).append("\n")
+			.append("병렬(동시) 실행 테스트파일 개수 : ").append(multiTestFileCount).append("\n")
+			.append("병렬(동시) 실행 테스트파일 리스트======================================================").append("\n").append(fileList.toString().replaceAll(",", "\n"));
+			return "병렬(동시) 실행 테스트 전체 결과" + result.toString();
+		} else {
+			// 선택된 테스트(들)을 몇번 동시실행할지 여부(중복실행 개수)
+			if(fileName.split("[*]",2).length==2) {
+				testMultiCount = Integer.parseInt(fileName.split("[*]",2)[1].trim());
+				fileName = fileName.split("[*]",2)[0].trim();
+			}
+			TestCall testCall = null;
+			testCall = new TestCall(new Constants(fileName, testMultiCount));
+			testCall.runTest(testMultiCount);
+			if(testCall.isExitApp) {
+				throw new Exception("테스트 파일[" + fileName + "] 수행 중 에러/예상결과가 도출되지 않아 임의로 종료합니다.");
+			}
+			return "테스트 파일[" + fileName + "] : 성공";
 		}
-		TestCall testCall = null;
-		testCall = new TestCall(new Constants(fileName, testMultiCount));
-		testCall.runTest(testMultiCount);
-		if(testCall.isExitApp) {
-			throw new Exception("테스트 파일[" + fileName + "] 수행 중 에러/예상결과가 도출되지 않아 임의로 종료합니다.");
-		}
-		return "테스트 파일[" + fileName + "] : 성공";
 	}
-	public static void main(String[] args) {
+	public static void main(String[] args) throws InvalidKeyException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException {
+//		System.out.println(encryptRsaBase64("new1234!", "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjQ4H3EW26Kvvdmo6/Ttsu16mN+mf5Y2T8gox5KLhpLnG6y8uX+W6fPfWnhzwt95vNieMrXmw92Xgm8RKFeHnUHMzWabFxeKv4slky6pbLq/TMbITAXVwdZVdfF2QDjU3HTJUmvgO79t782y6s5Be3js8cIX5eSKnWXSBUq6zZRmTHwpd0Y7ejCy/1JHPi05i9hBPEpAs31xh3CU/bUhdc86+nQeeFf8vGQ+xtLjq2085pK/s6WNnrqHwjQw7rw0TLSLM6m8TuquJfrBIkh2Rwy/Xx8MihlCOxXJcQFd24BnJab3RIolOeaqfEg7j+gYlfjW0jaS6gvsTXujNqyGEXwIDAQAB", Charset.forName("UTF-8")));
+//		if(true)
+//			return;
 //		System.out.println("asdfsadf sdfasdf".replaceAll(" ", "+"));
 //		String queryData = "/*** 회원등록을 수행하기전에 BIZNARU.DB에 존재하는 회원정보를 삭제해야 정상적인 등록과정을 수행할 수 있다. ***/DELETE FROM MB_CUST_ACC_BAS WHERE ACC_ID = '${test.val.acc.id}' ; SELECT * FROM MB_CUST_ACC_BAS WHERE ACC_ID = '${test.val.acc.id}'";
 //		String result = clearRemarkStr(queryData, "/*", "*/", 0);
@@ -393,7 +481,7 @@ public class TestCall extends RestTestBase {
 		waittingStopCmdServer();
 		this.startTestTime = System.currentTimeMillis();
 
-		final boolean isStopWhenWeMeetFail = constants.isStopFailed();
+		final boolean isStopWhenWeMeetFail = constants.isStopFailed() && isFailedToStopInMulti;
 		/* TEST.LOOP.START */
 		if(isLoopRelayTest) {
 			Thread[] arrThread = new Thread[totalMultiConnector];
@@ -637,11 +725,22 @@ public class TestCall extends RestTestBase {
 					foundIndex = 0;
 					for (String like : likeCut.split("[*]")) {
 						if(!StringUtils.isEmpty(like)) {
-							foundIndex = targetStr.indexOf(like);
-							if(foundIndex<0) {
-								throw new Exception(String.format("통신은 성공이나 결과문자열에 예상된 값[%s]이 존재하지 않아 실패처리 되었습니다. 결과예상패턴[%s], 통신결과[%s]", like, resultLike, response));
+							boolean isNor = false;
+							if(like.startsWith("!")) {
+								isNor = true;
+								like = like.substring(1);
+								foundIndex = targetStr.indexOf(like);
+								if(foundIndex>=0) {
+									throw new Exception(String.format("통신은 성공이나 결과문자열에 에러일 경우 예상된 값[%s]이 존재하여 실패처리 되었습니다. 실패시 결과예상패턴[%s], 통신결과[%s]", like, resultLike, response));
+								}
+								targetStr = targetStr.substring(foundIndex+like.length());
+							} else {
+								foundIndex = targetStr.indexOf(like);
+								if(foundIndex<0) {
+									throw new Exception(String.format("통신은 성공이나 결과문자열에 예상된 값[%s]이 존재하지 않아 실패처리 되었습니다. 결과예상패턴[%s], 통신결과[%s]", like, resultLike, response));
+								}
+								targetStr = targetStr.substring(foundIndex+like.length());
 							}
-							targetStr = targetStr.substring(foundIndex+like.length());
 						}
 					}
 				}

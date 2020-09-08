@@ -51,6 +51,9 @@ public class Constants {
 	private String propertiesFileName = BASE_PROPERTIES_FILE_NAME;
 
 	public Constants(String propertiesFile, int testMultiCount) throws IOException {
+		this(propertiesFile, testMultiCount, 1);
+	}
+	public Constants(String propertiesFile, int testMultiCount, int threadCount) throws IOException {
 		if(StringUtils.isEmpty(propertiesFile)) {
 			this.properties = readProperties(new File(BASE_PROPERTIES_FILE_NAME));
 		} else {
@@ -58,7 +61,7 @@ public class Constants {
 			this.properties = readProperties(new File(propertiesFile));
 		}
 		if(testMultiCount>0) {
-			this.executorCorePoolSize = testMultiCount;
+			this.executorCorePoolSize = testMultiCount * threadCount;
 		} else {
 			this.executorCorePoolSize = this.getTotalMultiConnector();
 		}

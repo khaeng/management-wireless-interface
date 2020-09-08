@@ -74,7 +74,7 @@ public class TestDataInfo {
 	}
 
 	private void initialize() {
-		testName = constants.getTestNameInfo(index, postFix);
+		testName = RestTestBase.switchParams(postFix, 0, constants.getTestNameInfo(index, postFix), null, null, null, constants, null);
 		threadName = Thread.currentThread().getName();
 		url = constants.getTestUrlInfo(index, postFix, mapKeepData, resultMapFirstCall, beforeResultMap);
 		method = constants.getTestHttpMethod(index, postFix);
